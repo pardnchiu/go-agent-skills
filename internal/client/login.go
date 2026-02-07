@@ -17,10 +17,14 @@ import (
 )
 
 var (
+	CopilotDefaultModel       = "gpt-4.1"
+	CopilotDefaultTokens      = 16384
+	CopilotDefaultTimeout     = 5 * time.Minute
 	GitHubDeviceCodeAPI       = "https://github.com/login/device/code"
 	GitHubOauthAccessTokenAPI = "https://github.com/login/oauth/access_token"
 	CopilotTokenURL           = "https://api.github.com/copilot_internal/v2/token"
 	CopilotClientID           = "Iv1.b507a08c87ecfe98"
+	MaxToolIterations         = 20
 )
 
 var ErrAuthorizationPending = fmt.Errorf("authorization pending") // pre declare error for ensuring padding wont cause login exit
@@ -81,7 +85,7 @@ func CopilotLogin(ctx context.Context, tokenPath string) (*CopilotToken, error) 
 		case <-time.After(interval):
 		}
 
-		token, err = GetAccessToken(ctx, client, code.DeviceCode)
+		token, err = getAccessToken(ctx, client, code.DeviceCode)
 		if err != nil {
 			if errors.Is(err, ErrAuthorizationPending) {
 				continue
@@ -113,7 +117,7 @@ type GopilotAccessToken struct {
 	Error       string `json:"error"`
 }
 
-func GetAccessToken(ctx context.Context, client *http.Client, deviceCode string) (*CopilotToken, error) {
+func getAccessToken(ctx context.Context, client *http.Client, deviceCode string) (*CopilotToken, error) {
 	accessToken, _, err := utils.POSTForm[GopilotAccessToken](ctx, client, GitHubOauthAccessTokenAPI,
 		map[string]string{},
 		url.Values{

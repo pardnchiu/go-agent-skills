@@ -22,32 +22,33 @@ type CopilotAgent struct {
 	Token      *CopilotToken
 	Refresh    *RefreshToken
 	workPath   string
+	tokenPath  string
 }
 
 func NewCopilot() (*CopilotAgent, error) {
 	workDir, _ := os.Getwd()
-
-	agent := &CopilotAgent{
-		httpClient: &http.Client{},
-		workPath:   workDir,
-	}
-
-	var token *CopilotToken
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 
-	path := filepath.Join(home, ".config", "go-agent-skills", "copilot_token.json")
-	data, err := os.ReadFile(path)
+	agent := &CopilotAgent{
+		httpClient: &http.Client{},
+		workPath:   workDir,
+		tokenPath:  filepath.Join(home, ".config", "go-agent-skills", "copilot_token.json"),
+	}
+
+	var token *CopilotToken
+
+	data, err := os.ReadFile(agent.tokenPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// * if is not exist, then login
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			defer cancel()
 
-			token, err = CopilotLogin(ctx, path)
+			token, err = CopilotLogin(ctx, agent.tokenPath)
 			if err != nil {
 				return nil, err
 			}
