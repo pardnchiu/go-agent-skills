@@ -4,95 +4,50 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+
+	"github.com/pardnchiu/go-agent-skills/internal/tools/file"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/model"
 )
 
-type Tool struct {
-	Type     string       `json:"type"`
-	Function ToolFunction `json:"function"`
-}
+//go:embed embed/tools.json
+var toolsMap []byte
 
-type ToolFunction struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
-}
+//go:embed embed/commands.json
+var allowCommand []byte
 
-type Executor struct {
-	WorkPath       string
-	Allowed        []string // limit to these folders to use
-	AllowedCommand map[string]bool
-	Exclude        []string
-	Tools          []Tool
-}
+//go:embed embed/exclude.json
+var excludeFiles []byte
 
-//go:embed tools.json
-var toolsJSON []byte
-
-func NewExecutor(workPath string) (*Executor, error) {
-	var tools []Tool
-	if err := json.Unmarshal(toolsJSON, &tools); err != nil {
+func NewExecutor(workPath string) (*model.Executor, error) {
+	var tools []model.Tool
+	if err := json.Unmarshal(toolsMap, &tools); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tools: %w", err)
 	}
 
-	return &Executor{
-		WorkPath: workPath,
-		AllowedCommand: map[string]bool{
-			// Version Control
-			"git": true,
+	var commands []string
+	if err := json.Unmarshal(allowCommand, &commands); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal commands: %w", err)
+	}
 
-			// Programming Languages & Package Managers
-			"go":      true,
-			"node":    true,
-			"npm":     true,
-			"yarn":    true,
-			"pnpm":    true,
-			"python":  true,
-			"python3": true,
-			"pip":     true,
-			"pip3":    true,
+	allowedCommand := make(map[string]bool, len(commands))
+	for _, cmd := range commands {
+		allowedCommand[cmd] = true
+	}
 
-			// File Operations
-			"ls":    true,
-			"cat":   true,
-			"head":  true,
-			"tail":  true,
-			"pwd":   true,
-			"mkdir": true,
-			"touch": true,
-			"cp":    true,
-			"mv":    true,
-			"rm":    true, // * not support native rm, but move to .Trash
+	var files []string
+	if err := json.Unmarshal(excludeFiles, &files); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal exclude files: %w", err)
+	}
 
-			// Text Processing
-			"grep": true,
-			"sed":  true,
-			"awk":  true,
-			"sort": true,
-			"uniq": true,
-			"diff": true,
-			"cut":  true,
-			"tr":   true,
-			"wc":   true,
-
-			// Search & Find
-			"find": true,
-
-			// Data Format
-			"jq": true,
-
-			// System Info
-			"echo":  true,
-			"which": true,
-			"date":  true,
-		},
-		Exclude: []string{
-			".DS_Store", ".git", "node_modules", "vendor", ".vscode", ".idea", "dist", "build",
-		},
-		Tools: tools,
+	return &model.Executor{
+		WorkPath:       workPath,
+		AllowedCommand: allowedCommand,
+		Exclude:        files,
+		Tools:          tools,
 	}, nil
 }
 
-func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
+func Execute(e *model.Executor, name string, args json.RawMessage) (string, error) {
 	switch name {
 	case "read_file":
 		var params struct {
@@ -101,7 +56,7 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
-		return e.readFile(params.Path)
+		return file.ReadFile(e, params.Path)
 
 	case "list_files":
 		var params struct {
@@ -111,7 +66,7 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
-		return e.listFiles(params.Path, params.Recursive)
+		return file.ListFiles(e, params.Path, params.Recursive)
 
 	case "glob_files":
 		var params struct {
@@ -120,7 +75,7 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
-		return e.globFiles(params.Pattern)
+		return file.GlobFiles(e, params.Pattern)
 
 	case "write_file":
 		var params struct {
@@ -130,7 +85,7 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
-		return e.writeFile(params.Path, params.Content)
+		return file.WriteFile(e, params.Path, params.Content)
 
 	case "search_content":
 		var params struct {
@@ -140,7 +95,18 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", err
 		}
-		return e.searchContent(params.Pattern, params.FilePattern)
+		return searchContent(e, params.Pattern, params.FilePattern)
+
+	case "patch_edit":
+		var params struct {
+			Path      string `json:"path"`
+			OldString string `json:"old_string"`
+			NewString string `json:"new_string"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+		}
+		return file.PatchEdit(e, params.Path, params.OldString, params.NewString)
 
 	case "run_command":
 		var params struct {
@@ -149,7 +115,7 @@ func (e *Executor) Execute(name string, args json.RawMessage) (string, error) {
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", err
 		}
-		return e.runCommand(params.Command)
+		return runCommand(e, params.Command)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}

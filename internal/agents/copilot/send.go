@@ -7,7 +7,7 @@ import (
 
 	"github.com/pardnchiu/go-agent-skills/internal/agents"
 	"github.com/pardnchiu/go-agent-skills/internal/skill"
-	t "github.com/pardnchiu/go-agent-skills/internal/tools"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/model"
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
@@ -26,7 +26,7 @@ func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput strin
 	return agents.Execute(ctx, a, a.workDir, skill, userInput, output, allowAll)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []t.Tool) (*agents.OpenAIOutput, error) {
+func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []model.Tool) (*agents.OpenAIOutput, error) {
 	result, _, err := utils.POSTJson[agents.OpenAIOutput](ctx, a.httpClient, chatAPI, map[string]string{
 		"Authorization":  "Bearer " + a.Refresh.Token,
 		"Editor-Version": "vscode/1.95.0",

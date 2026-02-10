@@ -4,254 +4,93 @@
 # go-agent-skills
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/go-agent-skills.svg)](https://pkg.go.dev/github.com/pardnchiu/go-agent-skills)
-[![card](https://goreportcard.com/badge/github.com/pardnchiu/go-agent-skills)](https://goreportcard.com/report/github.com/pardnchiu/go-agent-skills)
 [![license](https://img.shields.io/github/license/pardnchiu/go-agent-skills)](LICENSE)
-[![version](https://img.shields.io/github/v/tag/pardnchiu/go-agent-skills?label=release)](https://github.com/pardnchiu/go-agent-skills/releases)
 
-> 輕量級 Go CLI 工具，透過多種 AI Agent 後端執行 Skill 並整合完整的檔案系統工具鏈
+> 統一多家 AI Agent 介面的 Skill 執行引擎，支援 GitHub Copilot、OpenAI、Claude、Gemini 與 Nvidia
 
 ## 目錄
 
 - [功能特點](#功能特點)
 - [架構](#架構)
-- [安裝](#安裝)
-- [使用方法](#使用方法)
-- [命令列參考](#命令列參考)
-- [API 參考](#api-參考)
+- [檔案結構](#檔案結構)
 - [授權](#授權)
 - [Author](#author)
 - [Stars](#stars)
 
 ## 功能特點
 
-- **多 Agent 後端支援**：支援 GitHub Copilot、OpenAI、Claude、Gemini、Nvidia 五種 AI Agent，透過互動式選單切換
-- **GitHub Copilot 認證**：裝置碼登入流程搭配自動 Token 刷新機制
-- **API Key 認證**：OpenAI、Claude、Gemini、Nvidia 透過環境變數 API Key 直接認證
-- **多目錄 Skill 掃描**：自動掃描 `.claude/skills`、`.skills`、`.opencode/skills`、`.openai/skills`、`.codex/skills` 及 `/mnt/skills/*` 下的所有可用 Skill
-- **Skill 執行引擎**：統一的 Agent Interface 搭配最多 128 次工具呼叫循環
-- **完整工具系統**：內建 `read_file`、`list_files`、`glob_files`、`write_file`、`search_content`、`run_command` 六種工具
-- **安全指令執行**：指令白名單機制，`rm` 自動轉為 `.Trash` 安全刪除
-- **互動式確認**：工具呼叫前提示使用者確認，支援 `--allow` 旗標跳過確認
+> `go install github.com/pardnchiu/go-agent-skills/cmd/cli@latest` · [完整文件](./doc.zh.md)
+
+### 整合多種雲端模型的 Agent 介面
+
+提供單一 `Agent` 介面，可同時整合 GitHub Copilot、OpenAI、Claude、Gemini 與 Nvidia 等主流雲端 AI 模型。開發者無需分別適配各家 API，所有雲端模型的接入邏輯與認證（如 Copilot 的 Device Code、或 API Key 驗證）皆於 Agent 層統一處理，使用統一的 `Send()` 及 `Execute()` 方法即可存取多種雲端 AI 算法。
+
+### 安全的指令執行機制
+
+內建 `rm` 指令攔截並自動移至 `.Trash` 目錄，避免 LLM 誤刪關鍵檔案。所有危險指令皆需通過白名單驗證，並支援互動式確認機制（`--allow` 旗標可跳過）。執行過程透明化，所有工具呼叫前都會印出參數供使用者檢視。
+
+### 智能 Skill 自動匹配
+
+當使用者未明確指定 Skill 名稱時，系統透過 LLM 自動從已安裝的 Skill 清單中選擇最符合需求的 Skill。若無適配 Skill，則退回至直接使用工具模式執行任務，無需手動指定工具或 Skill。
 
 ## 架構
 
 ```mermaid
 graph TB
-    CLI[CLI Main] --> Scanner[Skill Scanner]
-    CLI --> Select[Agent 選擇]
-
-    Select --> Copilot[Copilot Agent]
-    Select --> OpenAI[OpenAI Agent]
-    Select --> Claude[Claude Agent]
-    Select --> Gemini[Gemini Agent]
-    Select --> Nvidia[Nvidia Agent]
-
-    Scanner --> SkillList[Skill List]
-    SkillList --> Parser[Skill Parser]
-
-    Copilot --> Exec[共用 Execute 流程]
-    OpenAI --> Exec
-    Claude --> Exec
-    Gemini --> Exec
-    Nvidia --> Exec
-
-    Exec --> ToolExec[Tool Executor]
-
-    ToolExec --> ReadFile[read_file]
-    ToolExec --> ListFiles[list_files]
-    ToolExec --> GlobFiles[glob_files]
-    ToolExec --> WriteFile[write_file]
-    ToolExec --> SearchContent[search_content]
-    ToolExec --> RunCommand[run_command]
-
-    style CLI fill:#e1f5ff
-    style Select fill:#f0e1ff
-    style Exec fill:#ffe1e1
-    style Scanner fill:#e1ffe1
-    style ToolExec fill:#fff3e1
+    User[使用者輸入] --> CLI[CLI 進入點]
+    CLI --> AgentSelect[Agent 選擇器]
+    AgentSelect --> |Copilot| CopilotAgent[Copilot Agent]
+    AgentSelect --> |OpenAI| OpenAIAgent[OpenAI Agent]
+    AgentSelect --> |Claude| ClaudeAgent[Claude Agent]
+    AgentSelect --> |Gemini| GeminiAgent[Gemini Agent]
+    AgentSelect --> |Nvidia| NvidiaAgent[Nvidia Agent]
+    
+    CopilotAgent --> Execute[Execute]
+    OpenAIAgent --> Execute
+    ClaudeAgent --> Execute
+    GeminiAgent --> Execute
+    NvidiaAgent --> Execute
+    
+    Execute --> SkillMatch{有指定 Skill?}
+    SkillMatch -->|是| SkillExec[Skill 執行]
+    SkillMatch -->|否| AutoSelect[LLM 自動選擇]
+    AutoSelect --> SkillExec
+    AutoSelect --> ToolExec[直接工具執行]
+    
+    SkillExec --> ToolCall[Tool Call 迴圈]
+    ToolExec --> ToolCall
+    ToolCall --> Executor[Tools Executor]
+    Executor --> |read_file/write_file| FileOps[檔案操作]
+    Executor --> |run_command| SafeCmd[安全指令執行]
+    SafeCmd --> |rm| Trash[移至 .Trash]
 ```
 
-## 安裝
-
-### 前置需求
-
-- Go 1.20 或更高版本
-- 至少一組 AI Agent 憑證（GitHub Copilot 訂閱 或 API Key）
-
-### 從原始碼安裝
-
-```bash
-git clone https://github.com/pardnchiu/go-agent-skills.git
-cd go-agent-skills
-go build -o agent-skills cmd/cli/main.go
-```
-
-### 使用 go install
-
-```bash
-go install github.com/pardnchiu/go-agent-skills/cmd/cli@latest
-```
-
-### 環境變數設定
-
-複製 `.env.example` 並填入對應的 API Key：
-
-```bash
-cp .env.example .env
-```
-
-```env
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-GEMINI_API_KEY=
-NVIDIA_API_KEY=
-```
-
-## 使用方法
-
-### 列出所有可用的 Skill
-
-```bash
-./agent-skills list
-```
-
-輸出範例：
+## 檔案結構
 
 ```
-Found 3 skill(s):
-
-• commit-generate
-  從 git diff 生成單句提交訊息
-  Path: /Users/user/.claude/skills/commit-generate
-
-• readme-generate
-  從原始碼分析自動生成雙語 README
-  Path: /Users/user/.claude/skills/readme-generate
-
-• version-generate
-  從最新的 git tag 到 HEAD 生成結構化變更日誌並推薦新版本
-  Path: /Users/user/.claude/skills/version-generate
+go-agent-skills/
+├── cmd/
+│   └── cli/
+│       └── main.go              # CLI 進入點，處理 list/run 指令
+├── internal/
+│   ├── agents/                  # Agent 實作
+│   │   ├── exec.go              # 統一執行邏輯與 Skill 自動匹配
+│   │   ├── copilot/             # GitHub Copilot（Device Code 登入）
+│   │   ├── openai/              # OpenAI API
+│   │   ├── claude/              # Anthropic Claude API
+│   │   ├── gemini/              # Google Gemini API
+│   │   └── nvidia/              # Nvidia API
+│   ├── skill/                   # Skill 掃描與解析
+│   │   ├── scanner.go           # 並行掃描多路徑 SKILL.md
+│   │   └── parser.go            # 解析 SKILL.md 中的 metadata
+│   └── tools/                   # 工具執行器
+│       ├── executor.go          # Tool 定義與執行入口
+│       ├── file.go              # read_file/write_file/list_files
+│       └── tools.go             # run_command（含白名單與 rm 攔截）
+├── go.mod
+├── LICENSE
+└── README.md
 ```
-
-### 執行 Skill
-
-```bash
-./agent-skills run <skill_name> <input>
-```
-
-執行後會顯示 Agent 選擇選單：
-
-```
-? Select Agent:
-  > GitHub Copilot
-    OpenAI
-    Claude
-    Gemini
-    Nvidia
-```
-
-範例：
-
-```bash
-# 互動模式（每次工具呼叫前確認）
-./agent-skills run commit-generate "generate commit message from current changes"
-
-# 自動模式（跳過確認）
-./agent-skills run readme-generate "generate readme" --allow
-```
-
-### GitHub Copilot 首次認證
-
-選擇 GitHub Copilot 時，若無已儲存的 Token，會自動觸發裝置碼登入流程。Token 儲存於 `~/.config/go-agent-skills/copilot_token.json`。
-
-## 命令列參考
-
-| 指令 | 語法 | 描述 |
-|------|------|------|
-| `list` | `./agent-skills list` | 列出所有已安裝的 Skill |
-| `run` | `./agent-skills run <skill> <input> [--allow]` | 執行指定的 Skill |
-
-### 旗標
-
-| 旗標 | 描述 |
-|------|------|
-| `--allow` | 跳過工具呼叫的互動式確認提示 |
-
-### 支援的 Agent
-
-| Agent | 認證方式 | 預設模型 | 環境變數 |
-|-------|----------|----------|----------|
-| GitHub Copilot | 裝置碼登入 | `gpt-4.1` | - |
-| OpenAI | API Key | `gpt-5-nano` | `OPENAI_API_KEY` |
-| Claude | API Key | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
-| Gemini | API Key | `gemini-2.5-pro` | `GEMINI_API_KEY` |
-| Nvidia | API Key | `openai/gpt-oss-120b` | `NVIDIA_API_KEY` |
-
-### 內建工具
-
-| 工具 | 參數 | 描述 |
-|------|------|------|
-| `read_file` | `path` | 讀取指定檔案內容 |
-| `list_files` | `path`, `recursive` | 列出目錄內容，支援遞迴模式 |
-| `glob_files` | `pattern` | 依 glob 模式尋找檔案（如 `**/*.go`） |
-| `write_file` | `path`, `content` | 寫入或建立檔案 |
-| `search_content` | `pattern`, `file_pattern` | 以正規表示式搜尋檔案內容 |
-| `run_command` | `command` | 執行白名單內的 Shell 指令 |
-
-### 允許的指令
-
-| 類別 | 指令 |
-|------|------|
-| 版本控制 | `git` |
-| 程式語言與套件管理 | `go`, `node`, `npm`, `yarn`, `pnpm`, `python`, `python3`, `pip`, `pip3` |
-| 檔案操作 | `ls`, `cat`, `head`, `tail`, `pwd`, `mkdir`, `touch`, `cp`, `mv`, `rm`* |
-| 文字處理 | `grep`, `sed`, `awk`, `sort`, `uniq`, `diff`, `cut`, `tr`, `wc` |
-| 搜尋 | `find` |
-| 資料格式 | `jq` |
-| 系統資訊 | `echo`, `which`, `date` |
-
-> \* `rm` 指令會自動將檔案移至 `.Trash` 目錄而非真正刪除
-
-## API 參考
-
-### Agent Interface (`internal/agents`)
-
-```go
-type Agent interface {
-    Send(ctx context.Context, messages []Message, toolDefs []tools.Tool) (*OpenAIOutput, error)
-    Execute(ctx context.Context, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error
-}
-```
-
-所有 Agent 實作此統一介面。`Execute` 為高階方法負責完整的 Skill 執行迴圈，`Send` 為低階方法負責單次 API 呼叫。
-
-### 共用執行流程
-
-```go
-func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error
-```
-
-統一的 Skill 執行引擎，最多迭代 128 次工具呼叫。每次迭代解析 API 回應中的工具呼叫請求，執行對應工具並將結果回傳至 Agent。
-
-### Skill Scanner (`internal/skill`)
-
-```go
-func NewScanner() *Scanner
-```
-
-建立 Skill 掃描器並立即以 Goroutine 併發掃描所有設定路徑。
-
-### Tool Executor (`internal/tools`)
-
-```go
-func NewExecutor(workPath string) (*Executor, error)
-```
-
-建立工具執行器，從 embedded `tools.json` 載入工具定義，初始化指令白名單與目錄排除列表。
-
-### HTTP 工具 (`internal/utils`)
-
-提供泛型 HTTP 方法（`GET`、`POSTForm`、`POSTJson`），使用 Go Generics 自動反序列化回應。
 
 ## 授權
 

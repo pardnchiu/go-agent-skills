@@ -4,254 +4,93 @@
 # go-agent-skills
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/go-agent-skills.svg)](https://pkg.go.dev/github.com/pardnchiu/go-agent-skills)
-[![card](https://goreportcard.com/badge/github.com/pardnchiu/go-agent-skills)](https://goreportcard.com/report/github.com/pardnchiu/go-agent-skills)
 [![license](https://img.shields.io/github/license/pardnchiu/go-agent-skills)](LICENSE)
-[![version](https://img.shields.io/github/v/tag/pardnchiu/go-agent-skills?label=release)](https://github.com/pardnchiu/go-agent-skills/releases)
 
-> A lightweight Go CLI tool that executes AI skills via multiple agent backends with a complete filesystem toolchain
+> Unified Skill execution engine for multiple AI agents, supporting GitHub Copilot, OpenAI, Claude, Gemini, and Nvidia
 
 ## Table of Contents
 
 - [Features](#features)
 - [Architecture](#architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [CLI Reference](#cli-reference)
-- [API Reference](#api-reference)
+- [File Structure](#file-structure)
 - [License](#license)
 - [Author](#author)
 - [Stars](#stars)
 
 ## Features
 
-- **Multi-Agent Backend Support**: Supports GitHub Copilot, OpenAI, Claude, Gemini, and Nvidia as AI agent backends with interactive selection menu
-- **GitHub Copilot Authentication**: Device code login flow with automatic token refresh mechanism
-- **API Key Authentication**: OpenAI, Claude, Gemini, and Nvidia authenticate directly via environment variable API keys
-- **Multi-Directory Skill Scanning**: Automatically scans `.claude/skills`, `.skills`, `.opencode/skills`, `.openai/skills`, `.codex/skills`, and `/mnt/skills/*` for available skills
-- **Skill Execution Engine**: Unified Agent interface with up to 128 tool call iterations
-- **Complete Tool System**: Built-in `read_file`, `list_files`, `glob_files`, `write_file`, `search_content`, and `run_command` tools
-- **Safe Command Execution**: Command whitelist mechanism, `rm` automatically moves to `.Trash` instead of deleting
-- **Interactive Confirmation**: Prompts user before each tool call, supports `--allow` flag to skip confirmation
+> `go install github.com/pardnchiu/go-agent-skills/cmd/cli@latest` · [Documentation](./doc.md)
+
+### Unified Agent Interface for Five AI Backends
+
+Integrates GitHub Copilot, OpenAI, Claude, Gemini, and Nvidia through a single `Agent` interface, eliminating the need to rewrite integration logic for each API. Whether it's Copilot's Device Code authentication or API Key validation for other platforms, all are handled by their respective Agent implementations. Consumers only need to use the unified `Send()` and `Execute()` methods.
+
+### Safe Command Execution
+
+Built-in `rm` command interception automatically moves files to `.Trash` directory instead of permanent deletion, preventing LLM from accidentally removing critical files. All dangerous commands require whitelist validation and support interactive confirmation (can be skipped with `--allow` flag). Execution is transparent with all tool calls and arguments printed for user review before execution.
+
+### Intelligent Skill Auto-Matching
+
+When users don't explicitly specify a Skill name, the system uses LLM to automatically select the most relevant Skill from installed options. If no suitable Skill is found, it falls back to direct tool execution mode, eliminating manual Skill or tool specification.
 
 ## Architecture
 
 ```mermaid
 graph TB
-    CLI[CLI Main] --> Scanner[Skill Scanner]
-    CLI --> Select[Agent Selection]
-
-    Select --> Copilot[Copilot Agent]
-    Select --> OpenAI[OpenAI Agent]
-    Select --> Claude[Claude Agent]
-    Select --> Gemini[Gemini Agent]
-    Select --> Nvidia[Nvidia Agent]
-
-    Scanner --> SkillList[Skill List]
-    SkillList --> Parser[Skill Parser]
-
-    Copilot --> Exec[Shared Execute Flow]
-    OpenAI --> Exec
-    Claude --> Exec
-    Gemini --> Exec
-    Nvidia --> Exec
-
-    Exec --> ToolExec[Tool Executor]
-
-    ToolExec --> ReadFile[read_file]
-    ToolExec --> ListFiles[list_files]
-    ToolExec --> GlobFiles[glob_files]
-    ToolExec --> WriteFile[write_file]
-    ToolExec --> SearchContent[search_content]
-    ToolExec --> RunCommand[run_command]
-
-    style CLI fill:#e1f5ff
-    style Select fill:#f0e1ff
-    style Exec fill:#ffe1e1
-    style Scanner fill:#e1ffe1
-    style ToolExec fill:#fff3e1
+    User[User Input] --> CLI[CLI Entry Point]
+    CLI --> AgentSelect[Agent Selector]
+    AgentSelect --> |Copilot| CopilotAgent[Copilot Agent]
+    AgentSelect --> |OpenAI| OpenAIAgent[OpenAI Agent]
+    AgentSelect --> |Claude| ClaudeAgent[Claude Agent]
+    AgentSelect --> |Gemini| GeminiAgent[Gemini Agent]
+    AgentSelect --> |Nvidia| NvidiaAgent[Nvidia Agent]
+    
+    CopilotAgent --> Execute[Execute]
+    OpenAIAgent --> Execute
+    ClaudeAgent --> Execute
+    GeminiAgent --> Execute
+    NvidiaAgent --> Execute
+    
+    Execute --> SkillMatch{Skill Specified?}
+    SkillMatch -->|Yes| SkillExec[Skill Execution]
+    SkillMatch -->|No| AutoSelect[LLM Auto-Select]
+    AutoSelect --> SkillExec
+    AutoSelect --> ToolExec[Direct Tool Execution]
+    
+    SkillExec --> ToolCall[Tool Call Loop]
+    ToolExec --> ToolCall
+    ToolCall --> Executor[Tools Executor]
+    Executor --> |read_file/write_file| FileOps[File Operations]
+    Executor --> |run_command| SafeCmd[Safe Command Execution]
+    SafeCmd --> |rm| Trash[Move to .Trash]
 ```
 
-## Installation
-
-### Prerequisites
-
-- Go 1.20 or higher
-- At least one AI agent credential (GitHub Copilot subscription or API key)
-
-### Install from Source
-
-```bash
-git clone https://github.com/pardnchiu/go-agent-skills.git
-cd go-agent-skills
-go build -o agent-skills cmd/cli/main.go
-```
-
-### Using go install
-
-```bash
-go install github.com/pardnchiu/go-agent-skills/cmd/cli@latest
-```
-
-### Environment Variables Setup
-
-Copy `.env.example` and fill in the corresponding API keys:
-
-```bash
-cp .env.example .env
-```
-
-```env
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-GEMINI_API_KEY=
-NVIDIA_API_KEY=
-```
-
-## Usage
-
-### List All Available Skills
-
-```bash
-./agent-skills list
-```
-
-Example output:
+## File Structure
 
 ```
-Found 3 skill(s):
-
-• commit-generate
-  Generate single-sentence commit message from git diff
-  Path: /Users/user/.claude/skills/commit-generate
-
-• readme-generate
-  Generate bilingual README from source code analysis
-  Path: /Users/user/.claude/skills/readme-generate
-
-• version-generate
-  Generate structured changelog and recommend new version from latest git tag to HEAD
-  Path: /Users/user/.claude/skills/version-generate
+go-agent-skills/
+├── cmd/
+│   └── cli/
+│       └── main.go              # CLI entry point, handles list/run commands
+├── internal/
+│   ├── agents/                  # Agent implementations
+│   │   ├── exec.go              # Unified execution logic and Skill auto-matching
+│   │   ├── copilot/             # GitHub Copilot (Device Code auth)
+│   │   ├── openai/              # OpenAI API
+│   │   ├── claude/              # Anthropic Claude API
+│   │   ├── gemini/              # Google Gemini API
+│   │   └── nvidia/              # Nvidia API
+│   ├── skill/                   # Skill scanning and parsing
+│   │   ├── scanner.go           # Concurrent multi-path SKILL.md scanner
+│   │   └── parser.go            # Parse SKILL.md metadata
+│   └── tools/                   # Tool executor
+│       ├── executor.go          # Tool definitions and execution entry
+│       ├── file.go              # read_file/write_file/list_files
+│       └── tools.go             # run_command (with whitelist and rm interception)
+├── go.mod
+├── LICENSE
+└── README.md
 ```
-
-### Execute a Skill
-
-```bash
-./agent-skills run <skill_name> <input>
-```
-
-An agent selection menu appears after execution:
-
-```
-? Select Agent:
-  > GitHub Copilot
-    OpenAI
-    Claude
-    Gemini
-    Nvidia
-```
-
-Example:
-
-```bash
-# Interactive mode (confirm before each tool call)
-./agent-skills run commit-generate "generate commit message from current changes"
-
-# Auto mode (skip confirmation)
-./agent-skills run readme-generate "generate readme" --allow
-```
-
-### GitHub Copilot First-Time Authentication
-
-When selecting GitHub Copilot without a stored token, the device code login flow triggers automatically. The token is stored at `~/.config/go-agent-skills/copilot_token.json`.
-
-## CLI Reference
-
-| Command | Syntax | Description |
-|---------|--------|-------------|
-| `list` | `./agent-skills list` | List all installed skills |
-| `run` | `./agent-skills run <skill> <input> [--allow]` | Execute the specified skill |
-
-### Flags
-
-| Flag | Description |
-|------|-------------|
-| `--allow` | Skip interactive confirmation prompts for tool calls |
-
-### Supported Agents
-
-| Agent | Authentication | Default Model | Environment Variable |
-|-------|---------------|---------------|---------------------|
-| GitHub Copilot | Device code login | `gpt-4.1` | - |
-| OpenAI | API Key | `gpt-5-nano` | `OPENAI_API_KEY` |
-| Claude | API Key | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
-| Gemini | API Key | `gemini-2.5-pro` | `GEMINI_API_KEY` |
-| Nvidia | API Key | `openai/gpt-oss-120b` | `NVIDIA_API_KEY` |
-
-### Built-in Tools
-
-| Tool | Parameters | Description |
-|------|------------|-------------|
-| `read_file` | `path` | Read file content at the specified path |
-| `list_files` | `path`, `recursive` | List directory contents with optional recursive mode |
-| `glob_files` | `pattern` | Find files matching a glob pattern (e.g., `**/*.go`) |
-| `write_file` | `path`, `content` | Write or create a file |
-| `search_content` | `pattern`, `file_pattern` | Search file content using regex patterns |
-| `run_command` | `command` | Execute whitelisted shell commands |
-
-### Allowed Commands
-
-| Category | Commands |
-|----------|----------|
-| Version Control | `git` |
-| Languages & Package Managers | `go`, `node`, `npm`, `yarn`, `pnpm`, `python`, `python3`, `pip`, `pip3` |
-| File Operations | `ls`, `cat`, `head`, `tail`, `pwd`, `mkdir`, `touch`, `cp`, `mv`, `rm`* |
-| Text Processing | `grep`, `sed`, `awk`, `sort`, `uniq`, `diff`, `cut`, `tr`, `wc` |
-| Search | `find` |
-| Data Format | `jq` |
-| System Info | `echo`, `which`, `date` |
-
-> \* The `rm` command automatically moves files to a `.Trash` directory instead of permanently deleting them
-
-## API Reference
-
-### Agent Interface (`internal/agents`)
-
-```go
-type Agent interface {
-    Send(ctx context.Context, messages []Message, toolDefs []tools.Tool) (*OpenAIOutput, error)
-    Execute(ctx context.Context, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error
-}
-```
-
-All agents implement this unified interface. `Execute` is the high-level method handling the complete skill execution loop, while `Send` is the low-level method responsible for a single API call.
-
-### Shared Execution Flow
-
-```go
-func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error
-```
-
-Unified skill execution engine iterating up to 128 tool call rounds. Each iteration parses tool call requests from the API response, executes the corresponding tools, and feeds results back to the agent.
-
-### Skill Scanner (`internal/skill`)
-
-```go
-func NewScanner() *Scanner
-```
-
-Create a skill scanner and immediately perform concurrent scanning across all configured paths using goroutines.
-
-### Tool Executor (`internal/tools`)
-
-```go
-func NewExecutor(workPath string) (*Executor, error)
-```
-
-Create a tool executor that loads tool definitions from embedded `tools.json` and initializes the command whitelist and directory exclusion list.
-
-### HTTP Utilities (`internal/utils`)
-
-Provides generic HTTP methods (`GET`, `POSTForm`, `POSTJson`) with automatic response deserialization using Go generics.
 
 ## License
 

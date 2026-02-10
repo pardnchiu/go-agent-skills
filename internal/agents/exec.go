@@ -9,17 +9,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/manifoldco/promptui"
 	"github.com/pardnchiu/go-agent-skills/internal/skill"
 	"github.com/pardnchiu/go-agent-skills/internal/tools"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/model"
 )
 
 //go:embed sysprompt.md
 var sysPrompt string
 
+//go:embed sysPromptBase.md
+var sysPromptBase string
+
+//go:embed prompt/skillSelector.md
+var promptSkillSelectpr string
+
 var (
-	MaxToolIterations = 128
+	MaxToolIterations = 32
 )
 
 type Message struct {
@@ -52,12 +60,74 @@ type OpenAIOutput struct {
 }
 
 type Agent interface {
-	Send(ctx context.Context, messages []Message, toolDefs []tools.Tool) (*OpenAIOutput, error)
+	Send(ctx context.Context, messages []Message, toolDefs []model.Tool) (*OpenAIOutput, error)
 	Execute(ctx context.Context, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error
 }
 
+func ExecuteAuto(ctx context.Context, agent Agent, scanner *skill.Scanner, userInput string, output io.Writer, allowAll bool) error {
+	workDir, _ := os.Getwd()
+
+	matched := selectSkill(ctx, agent, scanner, userInput)
+	if matched != nil {
+		fmt.Fprintf(output, "[*] Auto-selected skill: %s\n", matched.Name)
+		return Execute(ctx, agent, workDir, matched, userInput, output, allowAll)
+	}
+
+	fmt.Fprintln(output, "[*] No matching skill found, using tools directly")
+	return Execute(ctx, agent, workDir, nil, userInput, output, allowAll)
+}
+
+func selectSkill(ctx context.Context, agent Agent, scanner *skill.Scanner, userInput string) *skill.Skill {
+	skills := scanner.List()
+	if len(skills) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+	for _, skill := range skills {
+		s := scanner.Skills.ByName[skill]
+		sb.WriteString(fmt.Sprintf("- %s: %s\n", skill, s.Description))
+	}
+
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: promptSkillSelectpr,
+		},
+		{
+			Role:    "user",
+			Content: fmt.Sprintf("Available skills:\n%s\nUser request: %s", sb.String(), userInput),
+		},
+	}
+
+	resp, err := agent.Send(ctx, messages, nil)
+	if err != nil || len(resp.Choices) == 0 {
+		return nil
+	}
+
+	answer := ""
+	if content, ok := resp.Choices[0].Message.Content.(string); ok {
+		answer = strings.TrimSpace(content)
+	}
+
+	if answer == "NONE" || answer == "" {
+		return nil
+	}
+
+	if s, ok := scanner.Skills.ByName[answer]; ok {
+		return s
+	}
+
+	cleaned := strings.Trim(answer, "\"'` \n")
+	if s, ok := scanner.Skills.ByName[cleaned]; ok {
+		return s
+	}
+
+	return nil
+}
+
 func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skill, userInput string, output io.Writer, allowAll bool) error {
-	if skill.Content == "" {
+	if skill != nil && skill.Content == "" {
 		return fmt.Errorf("SKILL.md is empty: %s", skill.Path)
 	}
 
@@ -79,6 +149,10 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 	}
 
 	for i := 0; i < MaxToolIterations; i++ {
+		if i > 0 {
+			time.Sleep(1 * time.Second)
+		}
+
 		resp, err := agent.Send(ctx, messages, exec.Tools)
 		if err != nil {
 			return err
@@ -94,7 +168,7 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 			messages = append(messages, choice.Message)
 
 			for _, e := range choice.Message.ToolCalls {
-				fmt.Printf("[*] Tool: %s\n", e.Function.Name)
+				fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", e.Function.Name, e.Function.Arguments)
 
 				if !allowAll {
 					var args map[string]any
@@ -103,45 +177,48 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 						for k, v := range args {
 							fmt.Printf("- %s: %v\n", k, v)
 						}
+						fmt.Printf("──────────────────────────────────────────────────\033[0m\n")
 					} else {
 						fmt.Printf("\033[90m──────────────────────────────────────────────────\n")
 						fmt.Printf("- %s\n", e.Function.Arguments)
+						fmt.Printf("──────────────────────────────────────────────────\033[0m\n")
 					}
 					prompt := promptui.Select{
 						Label: "Continue?",
 						Items: []string{
 							"Yes",
-							"Cancel",
+							"Skip",
+							"Stop",
 						},
-						Size:         2,
+						Size:         3,
 						HideSelected: true,
 					}
 
 					idx, _, err := prompt.Run()
-					if err != nil {
-						fmt.Printf("[x] Prompt error: %v\n", err)
-						continue
-					}
-
-					if idx == 1 {
-						fmt.Printf("[x] User cancelled\n")
+					if err != nil || idx == 1 {
+						fmt.Printf("[x] User skipped\n")
 						messages = append(messages, Message{
 							Role:       "tool",
-							Content:    "User cancelled",
+							Content:    "User skipped",
 							ToolCallID: e.ID,
 						})
 						continue
+					} else if idx == 2 {
+						fmt.Printf("[x] User stopped\n")
+						return nil
 					}
 				}
 
-				result, err := exec.Execute(e.Function.Name, json.RawMessage(e.Function.Arguments))
+				result, err := tools.Execute(exec, e.Function.Name, json.RawMessage(e.Function.Arguments))
 				if err != nil {
 					result = "Error: " + err.Error()
 				}
 
-				fmt.Printf("\033[90m──────────────────────────────────────────────────\n")
-				fmt.Printf("%s\n", strings.TrimSpace(result))
-				fmt.Printf("──────────────────────────────────────────────────\033[0m\n")
+				if e.Function.Name == "write_file" {
+					fmt.Printf("\033[90m──────────────────────────────────────────────────\n")
+					fmt.Printf("%s\n", strings.TrimSpace(result))
+					fmt.Printf("──────────────────────────────────────────────────\033[0m\n")
+				}
 
 				messages = append(messages, Message{
 					Role:       "tool",
@@ -169,6 +246,9 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 }
 
 func systemPrompt(workPath string, skill *skill.Skill) string {
+	if skill == nil {
+		return strings.ReplaceAll(sysPromptBase, "{{.WorkPath}}", workPath)
+	}
 	content := skill.Content
 
 	for _, prefix := range []string{"scripts/", "templates/", "assets/"} {

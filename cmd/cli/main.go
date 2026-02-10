@@ -62,28 +62,54 @@ func main() {
 	}
 
 	if os.Args[1] == "run" {
-		if len(os.Args) < 4 {
-			fmt.Println("Usage: go run cmd/cli/main.go run <skill_name> <input> [--allow]")
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: go run cmd/cli/main.go run <input> [--allow]")
+			fmt.Println("       go run cmd/cli/main.go run <skill_name> <input> [--allow]")
 			os.Exit(1)
 		}
 
-		skillName := os.Args[2]
-		userInput := os.Args[3]
-		allowAll := slices.Contains(os.Args[4:], "--allow")
+		// skillName := os.Args[2]
+		// userInput := os.Args[3]
+		allowAll := slices.Contains(os.Args[3:], "--allow")
 
 		agent := selectAgent()
 		scanner := skill.NewScanner()
-		targetSkill, ok := scanner.Skills.ByName[skillName]
-		if !ok {
-			slog.Error("skill not found", slog.String("name", skillName))
+
+		// 嘗試第二個參數是否為已知 skill name
+		if len(os.Args) >= 4 {
+			if targetSkill, ok := scanner.Skills.ByName[os.Args[2]]; ok {
+				// 明確指定 skill：run <skill_name> <input>
+				userInput := os.Args[3]
+				ctx := context.Background()
+				if err := agent.Execute(ctx, targetSkill, userInput, os.Stdout, allowAll); err != nil {
+					slog.Error("failed to execute skill", slog.String("error", err.Error()))
+					os.Exit(1)
+				}
+				return
+			}
+		}
+
+		userInput := os.Args[2]
+		allowAll = slices.Contains(os.Args[3:], "--allow")
+		ctx := context.Background()
+		if err := agents.ExecuteAuto(ctx, agent, scanner, userInput, os.Stdout, allowAll); err != nil {
+			slog.Error("failed to execute", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
-		ctx := context.Background()
-		if err := agent.Execute(ctx, targetSkill, userInput, os.Stdout, allowAll); err != nil {
-			slog.Error("failed to execute skill", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
+		// agent := selectAgent()
+		// scanner := skill.NewScanner()
+		// targetSkill, ok := scanner.Skills.ByName[skillName]
+		// if !ok {
+		// 	slog.Error("skill not found", slog.String("name", skillName))
+		// 	os.Exit(1)
+		// }
+
+		// ctx := context.Background()
+		// if err := agent.Execute(ctx, targetSkill, userInput, os.Stdout, allowAll); err != nil {
+		// 	slog.Error("failed to execute skill", slog.String("error", err.Error()))
+		// 	os.Exit(1)
+		// }
 		return
 	}
 

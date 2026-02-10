@@ -8,7 +8,7 @@ import (
 
 	"github.com/pardnchiu/go-agent-skills/internal/agents"
 	"github.com/pardnchiu/go-agent-skills/internal/skill"
-	t "github.com/pardnchiu/go-agent-skills/internal/tools"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/model"
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
@@ -25,7 +25,7 @@ func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput strin
 	return agents.Execute(ctx, a, a.workDir, skill, userInput, output, allowAll)
 }
 
-func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []t.Tool) (*agents.OpenAIOutput, error) {
+func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []model.Tool) (*agents.OpenAIOutput, error) {
 	var systemPrompt string
 	var newMessages []map[string]any
 
@@ -102,7 +102,7 @@ func (a *Agent) convertToMessage(message agents.Message) map[string]any {
 	}
 }
 
-func (a *Agent) convertToTools(tools []t.Tool) []map[string]any {
+func (a *Agent) convertToTools(tools []model.Tool) []map[string]any {
 	newTools := make([]map[string]any, len(tools))
 	for i, tool := range tools {
 		newTools[i] = map[string]any{

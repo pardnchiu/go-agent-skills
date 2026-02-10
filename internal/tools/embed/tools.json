@@ -99,6 +99,31 @@
   {
     "type": "function",
     "function": {
+      "name": "patch_edit",
+      "description": "透過精確字串匹配來編輯檔案。僅替換第一個匹配項。適合對檔案進行小幅修改，比 write_file 更安全。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "要編輯的檔案路徑（相對於專案根目錄或絕對路徑）"
+          },
+          "old_string": {
+            "type": "string",
+            "description": "要被替換的原始內容（必須精確匹配）"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "替換為的新內容"
+          }
+        },
+        "required": ["path", "old_string", "new_string"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "run_command",
       "description": "執行 shell 指令並返回其輸出。用於執行建置工具、git 指令等。",
       "parameters": {
