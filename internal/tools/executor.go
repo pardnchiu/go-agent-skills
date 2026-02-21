@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pardnchiu/go-agent-skills/internal/tools/apis/googleRSS"
 	yahoofinance "github.com/pardnchiu/go-agent-skills/internal/tools/apis/yahooFinance"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/file"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
@@ -120,6 +121,17 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
 		return yahoofinance.Fetch(params.Symbol, params.Interval, params.Range)
+
+	case "fetch_google_rss":
+		var params struct {
+			Keyword string `json:"keyword"`
+			Time    string `json:"time"`
+			Lang    string `json:"lang"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+		}
+		return googleRSS.Fetch(params.Keyword, params.Time, params.Lang)
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)

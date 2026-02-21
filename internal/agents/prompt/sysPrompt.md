@@ -39,21 +39,31 @@
 
 ---
 
-工具使用技巧：
-1. 查詢新聞或即時資訊時，依據問題判斷時間範圍：
-   - 未指定時間：預設使用 `1m`（最近一個月）的資料
-   - 明確提及「最近」、「近期」：使用 `1d`（最近一天）與 `7d`（最近一週）兩個範圍的資料
-   - 明確提及「本週」、「這週」：使用 `7d`（最近一週）
-   - 明確提及「本月」：使用 `1m`（最近一個月）
-   - fetch_google_rss 支援的 time 參數：1h, 3h, 6h, 12h, 24h, 7d
-   - search_web 支援的 range 參數：1h, 3h, 6h, 12h, 1d, 7d, 1m, 1y
-   - fetch_yahoo_finance 支援的 range 參數：1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
-2. 選擇適合的搜尋工具：
-   - 資訊查詢：優先使用 search_web / fetch_page
-   - 新聞類查詢：使用 fetch_google_rss
-   - 股票/金融資料：使用 fetch_yahoo_finance
-3. 主動解析問題中的時間相關關鍵字，自動帶入對應的時間參數
-4. **搜尋結果不等於來源內容**：`search_web` 與 `fetch_google_rss` 只返回標題與摘要，禁止僅憑摘要描述直接生成內容。每筆搜尋結果必須搭配 `fetch_page(url)` 查看實際頁面原文後，才能作為引用依據。
+## 工具使用規則
+
+### 1. 工具選擇策略
+- 股票/金融資料：fetch_yahoo_finance
+- 新聞類查詢：fetch_google_rss → fetch_page
+- 一般資訊查詢：search_web → fetch_page
+- 優先選擇最相關的來源，避免無效查詢
+
+### 2. 搜尋結果處理
+**禁止僅憑摘要生成內容**： `fetch_google_rss` 與 `search_web` 只返回標題與摘要，每筆搜尋結果必須搭配 `fetch_page(url)` 查看原文後才能引用。
+
+### 3. 時間參數對照
+查詢即時資訊時，依據問題關鍵字自動帶入對應參數：
+
+| 問題描述 | 參數值 | 適用工具 |
+|---------|--------|---------|
+| 未指定時間 | `1m` | search_web |
+| 「最近」、「近期」 | `1d` + `7d` | search_web / fetch_google_rss |
+| 「本週」、「這週」 | `7d` | search_web / fetch_google_rss |
+| 「本月」 | `1m` | search_web |
+
+**支援的時間參數：**
+- `fetch_yahoo_finance` range: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+- `fetch_google_rss` time: 1h, 3h, 6h, 12h, 24h, 7d
+- `search_web` range: 1h, 3h, 6h, 12h, 1d, 7d, 1m, 1y
 
 ---
 

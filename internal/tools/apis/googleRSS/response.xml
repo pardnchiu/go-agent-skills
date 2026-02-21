@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <generator>NFE/5.0</generator>
+        <title>"AI when:1h" - Google 新聞</title>
+        <link>https://news.google.com/search?q=AI+when:1h&amp;hl=zh-TW&amp;gl=TW&amp;ceid=TW:zh-Hant</link>
+        <language>zh-TW</language>
+        <webMaster>news-webmaster@google.com</webMaster>
+        <copyright
+    >Copyright © 2026 Google. All rights reserved. This XML feed is made available solely for the purpose of rendering Google News results within a personal feed reader for personal, non-commercial use. Any other use of the feed is expressly prohibited. By accessing this feed or using these results in any manner whatsoever, you agree to be bound by the foregoing restrictions.</copyright>
+        <lastBuildDate>Sat, 21 Feb 2026 16:16:53 GMT</lastBuildDate>
+        <image>
+            <title>Google 新聞</title>
+            <url
+      >https://lh3.googleusercontent.com/-DR60l-K8vnyi99NZovm9HlXyZwQ85GMDxiwJWzoasZYCUrPuUM_P_4Rb7ei03j-0nRs0c4F=w256</url>
+            <link>https://news.google.com/</link>
+            <height>256</height>
+            <width>256</width>
+        </image>
+        <description>Google 新聞</description>
+        <item>
+            <title>全球AI峰會聯合宣言 籲打造安全可信強健人工智慧 - 芋傳媒 TaroNews</title>
+            <link
+      >https://news.google.com/rss/articles/CBMiUEFVX3lxTE1qNmZZcnpQWXkyYi1ydmZMb0pIZ3dQeUl3MTVFYktMdXVLUEN5UmhYMy1QTVJkVVZadU01WW1iSzdfdmtVV1U5TU1XTk1WVjJ4?oc=5</link>
+            <guid
+        isPermaLink="false"
+      >CBMiUEFVX3lxTE1qNmZZcnpQWXkyYi1ydmZMb0pIZ3dQeUl3MTVFYktMdXVLUEN5UmhYMy1QTVJkVVZadU01WW1iSzdfdmtVV1U5TU1XTk1WVjJ4</guid>
+            <pubDate>Sat, 21 Feb 2026 16:03:42 GMT</pubDate>
+            <description
+      >&lt;a href="https://news.google.com/rss/articles/CBMiUEFVX3lxTE1qNmZZcnpQWXkyYi1ydmZMb0pIZ3dQeUl3MTVFYktMdXVLUEN5UmhYMy1QTVJkVVZadU01WW1iSzdfdmtVV1U5TU1XTk1WVjJ4?oc=5" target="_blank"&gt;全球AI峰會聯合宣言 籲打造安全可信強健人工智慧&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;芋傳媒 TaroNews&lt;/font&gt;</description>
+            <source url="https://taronews.tw">芋傳媒 TaroNews</source>
+        </item>
+    </channel>
+</rss>

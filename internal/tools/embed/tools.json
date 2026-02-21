@@ -166,5 +166,32 @@
         "required": ["symbol"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "fetch_google_rss",
+      "description": "透過 Google News RSS 搜尋新聞，返回標題與真實文章連結。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "搜尋關鍵字（支援 Google 搜尋語法，如 'nvidia OR AMD'）"
+          },
+          "time": {
+            "type": "string",
+            "description": "時間範圍，可選值：1h / 3h / 6h / 12h / 24h / 7d",
+            "enum": ["1h", "3h", "6h", "12h", "24h", "7d"]
+          },
+          "lang": {
+            "type": "string",
+            "description": "語言與地區設定，格式 '{country}:{lang}'，預設 'TW:zh-Hant'",
+            "default": "TW:zh-Hant"
+          }
+        },
+        "required": ["keyword", "time"]
+      }
+    }
   }
 ]

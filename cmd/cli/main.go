@@ -145,6 +145,10 @@ func printTool(ev atypes.Event) {
 		fmt.Printf("[*] Patch Edit — \033[33m%s\033[0m\n", args["path"])
 	case "run_command":
 		fmt.Printf("[*] Run Command — \033[32m%s\033[0m\n", args["command"])
+	case "fetch_yahoo_finance":
+		fmt.Printf("[*] Fetch Ticker — \033[34m%s (%s)\033[0m\n", args["symbol"], args["range"])
+	case "fetch_google_rss":
+		fmt.Printf("[*] Fetch News — \033[34m%s (%s)\033[0m\n", args["keyword"], args["time"])
 	default:
 		fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", ev.ToolName, ev.ToolArgs)
 	}

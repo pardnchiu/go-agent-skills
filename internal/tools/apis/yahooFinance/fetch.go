@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	url1 = "https://query1.finance.yahoo.com/v8/finance/chart"
-	url2 = "https://query2.finance.yahoo.com/v8/finance/chart"
+	apiPath1 = "https://query1.finance.yahoo.com/v8/finance/chart"
+	apiPath2 = "https://query2.finance.yahoo.com/v8/finance/chart"
 )
 
 var barIntervals = []string{
@@ -108,7 +108,7 @@ func Fetch(ticker, barInterval, timeRange string) (string, error) {
 		return "", fmt.Errorf("invalid range: %s", timeRange)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// * concurrent fetch 2 url to get first return
@@ -127,11 +127,11 @@ func concurrentFetch(ctx context.Context, ticker, barInterval, timeRange string)
 	}
 
 	ch := make(chan result, 2)
-	for _, url := range []string{url1, url2} {
-		go func(url string) {
-			data, err := fetch(ctx, url, ticker, barInterval, timeRange)
+	for _, e := range []string{apiPath1, apiPath2} {
+		go func(path string) {
+			data, err := fetch(ctx, path, ticker, barInterval, timeRange)
 			ch <- result{data, err}
-		}(url)
+		}(e)
 	}
 
 	var err error
@@ -147,14 +147,13 @@ func concurrentFetch(ctx context.Context, ticker, barInterval, timeRange string)
 }
 
 func fetch(ctx context.Context, baseURL, ticker, barInterval, timeRange string) (string, error) {
-	url := fmt.Sprintf("%s/%s?interval=%s&range=%s", baseURL, ticker, barInterval, timeRange)
+	path := fmt.Sprintf("%s/%s?interval=%s&range=%s", baseURL, ticker, barInterval, timeRange)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to build request: %w", err)
 	}
 
-	// * important: returns 401 without browser-like headers
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
