@@ -193,5 +193,48 @@
         "required": ["keyword", "time"]
       }
     }
+  },
+
+  {
+    "type": "function",
+    "function": {
+      "name": "send_http_request",
+      "description": "發送 HTTP 請求並返回回應內容。支援 GET、POST（JSON/Form）等方法。適合呼叫 REST API、Webhook 或其他 HTTP 服務。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "完整的 URL（需包含 http:// 或 https://）"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP 方法",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+            "default": "GET"
+          },
+          "headers": {
+            "type": "object",
+            "description": "請求標頭（key-value 格式），例如 {\"Authorization\": \"Bearer token\"}"
+          },
+          "body": {
+            "type": "object",
+            "description": "請求本體（JSON 格式），適用於 POST/PUT/PATCH"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Content-Type，可選值：json（預設）、form",
+            "enum": ["json", "form"],
+            "default": "json"
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "請求超時秒數，預設 30 秒，最大 300 秒。一般 REST API 用 30；需要運算的 API（如 AI 生圖、語音合成、影片處理）建議設 120 以上",
+            "default": 30
+          }
+        },
+        "required": ["url"]
+      }
+    }
   }
 ]

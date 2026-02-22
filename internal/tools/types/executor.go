@@ -1,6 +1,10 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/pardnchiu/go-agent-skills/internal/tools/apiAdapter"
+)
 
 type Executor struct {
 	WorkPath       string
@@ -8,6 +12,7 @@ type Executor struct {
 	AllowedCommand map[string]bool
 	Exclude        []Exclude
 	Tools          []Tool
+	APIToolbox     *apiAdapter.Translator
 }
 
 type Exclude struct {

@@ -4,9 +4,14 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/pardnchiu/go-agent-skills/internal/tools/apiAdapter"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/apis/googleRSS"
-	yahoofinance "github.com/pardnchiu/go-agent-skills/internal/tools/apis/yahooFinance"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/apis/yahooFinance"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/file"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
@@ -17,15 +22,17 @@ var toolsMap []byte
 //go:embed embed/commands.json
 var allowCommand []byte
 
+const cacheExpiry = 1 * time.Hour
+
 func NewExecutor(workPath string) (*types.Executor, error) {
 	var tools []types.Tool
 	if err := json.Unmarshal(toolsMap, &tools); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tools: %w", err)
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 
 	var commands []string
 	if err := json.Unmarshal(allowCommand, &commands); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal commands: %w", err)
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 
 	allowedCommand := make(map[string]bool, len(commands))
@@ -33,22 +40,52 @@ func NewExecutor(workPath string) (*types.Executor, error) {
 		allowedCommand[cmd] = true
 	}
 
+	apiToolbox := apiAdapter.New()
+	apiToolbox.Load(filepath.Join(workPath, ".config", "apis"))
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		apiToolbox.Load(filepath.Join(home, ".config", "go-agent-skills", "apis"))
+	}
+
+	for _, tool := range apiToolbox.GetTools() {
+		data, err := json.Marshal(tool)
+		if err != nil {
+			continue
+		}
+		var t types.Tool
+		if err := json.Unmarshal(data, &t); err != nil {
+			continue
+		}
+		tools = append(tools, t)
+	}
+
 	return &types.Executor{
 		WorkPath:       workPath,
 		AllowedCommand: allowedCommand,
 		Exclude:        file.ListExcludes(workPath),
 		Tools:          tools,
+		APIToolbox:     apiToolbox,
 	}, nil
 }
 
 func Execute(e *types.Executor, name string, args json.RawMessage) (string, error) {
+	// * get all api tools
+	if strings.HasPrefix(name, "api_") && e.APIToolbox != nil && e.APIToolbox.IsExist(name) {
+		var params map[string]any
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
+		}
+		return e.APIToolbox.Execute(name, params)
+	}
+
 	switch name {
 	case "read_file":
 		var params struct {
 			Path string `json:"path"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return file.ReadFile(e, params.Path)
 
@@ -58,7 +95,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Recursive bool   `json:"recursive"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return file.ListFiles(e, params.Path, params.Recursive)
 
@@ -67,7 +104,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Pattern string `json:"pattern"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return file.GlobFiles(e, params.Pattern)
 
@@ -77,7 +114,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Content string `json:"content"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return file.WriteFile(e, params.Path, params.Content)
 
@@ -87,7 +124,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			FilePattern string `json:"file_pattern"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", err
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return searchContent(e, params.Pattern, params.FilePattern)
 
@@ -98,7 +135,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			NewString string `json:"new_string"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return file.PatchEdit(e, params.Path, params.OldString, params.NewString)
 
@@ -107,7 +144,7 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Command string `json:"command"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", err
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return runCommand(e, params.Command)
 
@@ -118,9 +155,9 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Range    string `json:"range"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
-		return yahoofinance.Fetch(params.Symbol, params.Interval, params.Range)
+		return yahooFinance.Fetch(params.Symbol, params.Interval, params.Range)
 
 	case "fetch_google_rss":
 		var params struct {
@@ -129,9 +166,23 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			Lang    string `json:"lang"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return googleRSS.Fetch(params.Keyword, params.Time, params.Lang)
+
+	case "send_http_request":
+		var params struct {
+			URL         string            `json:"url"`
+			Method      string            `json:"method"`
+			Headers     map[string]string `json:"headers"`
+			Body        map[string]any    `json:"body"`
+			ContentType string            `json:"content_type"`
+			Timeout     int               `json:"timeout"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
+		}
+		return apiAdapter.Send(params.URL, params.Method, params.Headers, params.Body, params.ContentType, params.Timeout)
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
