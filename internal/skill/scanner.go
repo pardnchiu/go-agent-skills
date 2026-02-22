@@ -77,7 +77,7 @@ func (s *Scanner) Scan() {
 		go func(dir string) {
 			defer wg.Done()
 			if err := s.scan(dir, skillChan); err != nil {
-				errChan <- fmt.Errorf("failed to scan %s: %w", dir, err)
+				errChan <- fmt.Errorf("s.scan %s: %w", dir, err)
 			}
 		}(path)
 	}

@@ -23,12 +23,12 @@ var (
 func parser(path string) (*Skill, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("faiel to get path: %w", err)
+		return nil, fmt.Errorf("filepath.Abs: %w", err)
 	}
 
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return nil, fmt.Errorf("os.ReadFile: %w", err)
 	}
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(content))

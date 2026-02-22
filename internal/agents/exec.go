@@ -131,7 +131,7 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 
 	exec, err := tools.NewExecutor(workDir)
 	if err != nil {
-		return fmt.Errorf("failed to create executor: %w", err)
+		return fmt.Errorf("tools.NewExecutor: %w", err)
 	}
 
 	systemPrompt := systemPrompt(workDir, skill)
