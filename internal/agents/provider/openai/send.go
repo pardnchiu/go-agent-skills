@@ -30,10 +30,10 @@ func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []tty
 		"tools":    tools,
 	}, "json")
 	if err != nil {
-		return nil, fmt.Errorf("API request: %w", err)
+		return nil, fmt.Errorf("utils.POST: %w", err)
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("API error: %s", result.Error.Message)
+		return nil, fmt.Errorf("utils.POST: %s", result.Error.Message)
 	}
 
 	return &result, nil

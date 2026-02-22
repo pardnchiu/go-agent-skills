@@ -47,7 +47,7 @@ func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []tty
 		"Content-Type": "application/json",
 	}, requestBody, "json")
 	if err != nil {
-		return nil, fmt.Errorf("API request: %w", err)
+		return nil, fmt.Errorf("utils.POST: %w", err)
 	}
 
 	return a.convertToOutput(&result), nil

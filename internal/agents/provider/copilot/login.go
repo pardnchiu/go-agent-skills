@@ -91,7 +91,7 @@ func (c *Agent) Login(ctx context.Context) (*Token, error) {
 		}
 		return token, nil
 	}
-	return nil, fmt.Errorf("failed to login: device code expired")
+	return nil, fmt.Errorf("device code expired")
 }
 
 type GopilotAccessToken struct {
@@ -123,17 +123,17 @@ func (c *Agent) getAccessToken(ctx context.Context, client *http.Client, deviceC
 
 		path := filepath.Dir(c.tokenDir)
 		if err := os.MkdirAll(path, 0700); err != nil {
-			return nil, fmt.Errorf("failed to create token directory: %w", err)
+			return nil, fmt.Errorf("os.MkdirAll: %w", err)
 		}
 
 		data, err := json.MarshalIndent(token, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal token: %w", err)
+			return nil, fmt.Errorf("json.MarshalIndent: %w", err)
 		}
 
 		err = os.WriteFile(c.tokenDir, data, 0600)
 		if err != nil {
-			return nil, fmt.Errorf("failed to save token: %w", err)
+			return nil, fmt.Errorf("os.WriteFile: %w", err)
 		}
 		return token, nil
 
@@ -141,6 +141,6 @@ func (c *Agent) getAccessToken(ctx context.Context, client *http.Client, deviceC
 		return nil, errAuthorizationPending
 
 	default:
-		return nil, fmt.Errorf("failed to get access token: %s", accessToken.Error)
+		return nil, fmt.Errorf("accessToken.Error: %s", accessToken.Error)
 	}
 }

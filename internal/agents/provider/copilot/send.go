@@ -25,7 +25,7 @@ func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput strin
 
 func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []ttypes.Tool) (*agents.OpenAIOutput, error) {
 	if err := a.checkExpires(ctx); err != nil {
-		return nil, fmt.Errorf("failed to refresh token: %w", err)
+		return nil, fmt.Errorf("a.checkExpires: %w", err)
 	}
 
 	result, _, err := utils.POST[agents.OpenAIOutput](ctx, a.httpClient, chatAPI, map[string]string{
@@ -37,10 +37,10 @@ func (a *Agent) Send(ctx context.Context, messages []agents.Message, tools []tty
 		"tools":    tools,
 	}, "json")
 	if err != nil {
-		return nil, fmt.Errorf("API request: %w", err)
+		return nil, fmt.Errorf("utils.POST: %w", err)
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("API error: %s", result.Error.Message)
+		return nil, fmt.Errorf("utils.POST: %s", result.Error.Message)
 	}
 
 	return &result, nil

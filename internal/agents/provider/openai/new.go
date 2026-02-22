@@ -15,7 +15,7 @@ type Agent struct {
 func New() (*Agent, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("API key is required")
+		return nil, fmt.Errorf("os.Getenv: OPENAI_API_KEY is required")
 	}
 
 	workDir, _ := os.Getwd()

@@ -32,16 +32,16 @@ func (c *Agent) refresh(ctx context.Context) error {
 		"Editor-Version": "vscode/1.95.0",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh token: %w", err)
+		return fmt.Errorf("utils.GET: %w", err)
 	}
 	if code == http.StatusUnauthorized {
-		return fmt.Errorf("token expired, please login again")
+		return fmt.Errorf("utils.GET: token expired")
 	}
 	if code == http.StatusForbidden || code == http.StatusNotFound {
-		return fmt.Errorf("token refresh failed, please login again")
+		return fmt.Errorf("utils.GET: token refresh failed")
 	}
 	if code != http.StatusOK {
-		return fmt.Errorf("failed to refresh token, status code: %d", code)
+		return fmt.Errorf("utils.GET: %d", code)
 	}
 
 	c.Refresh = &token

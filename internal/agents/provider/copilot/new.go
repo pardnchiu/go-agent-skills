@@ -27,10 +27,14 @@ type Agent struct {
 }
 
 func New() (*Agent, error) {
-	workDir, _ := os.Getwd()
+	workDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("os.Getwd: %w", err)
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user home dir: %w", err)
+		return nil, fmt.Errorf("os.UserHomeDir: %w", err)
 	}
 
 	agent := &Agent{
@@ -50,16 +54,16 @@ func New() (*Agent, error) {
 
 			token, err = agent.Login(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to login copilot: %w", err)
+				return nil, fmt.Errorf("agent.Login: %w", err)
 			}
 			agent.Token = token
 			return agent, nil
 		}
-		return nil, fmt.Errorf("failed to get copilot token file: %w", err)
+		return nil, fmt.Errorf("os.ReadFile: %w", err)
 	}
 
 	if err := json.Unmarshal(data, &token); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal copilot token: %w", err)
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
 	}
 	agent.Token = token
 
