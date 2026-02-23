@@ -10,7 +10,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
 
-func ListFiles(e *types.Executor, path string, recursive bool) (string, error) {
+func list(e *types.Executor, path string, recursive bool) (string, error) {
 	fullPath := getFullPath(e, path)
 
 	var files []string

@@ -79,43 +79,8 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 	}
 
 	switch name {
-	case "read_file":
-		var params struct {
-			Path string `json:"path"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("json.Unmarshal: %w", err)
-		}
-		return file.ReadFile(e, params.Path)
-
-	case "list_files":
-		var params struct {
-			Path      string `json:"path"`
-			Recursive bool   `json:"recursive"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("json.Unmarshal: %w", err)
-		}
-		return file.ListFiles(e, params.Path, params.Recursive)
-
-	case "glob_files":
-		var params struct {
-			Pattern string `json:"pattern"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("json.Unmarshal: %w", err)
-		}
-		return file.GlobFiles(e, params.Pattern)
-
-	case "write_file":
-		var params struct {
-			Path    string `json:"path"`
-			Content string `json:"content"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("json.Unmarshal: %w", err)
-		}
-		return file.WriteFile(e, params.Path, params.Content)
+	case "read_file", "list_files", "glob_files", "write_file", "patch_edit":
+		return file.Routes(e, name, args)
 
 	case "search_content":
 		var params struct {
@@ -126,17 +91,6 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		return searchContent(e, params.Pattern, params.FilePattern)
-
-	case "patch_edit":
-		var params struct {
-			Path      string `json:"path"`
-			OldString string `json:"old_string"`
-			NewString string `json:"new_string"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return "", fmt.Errorf("json.Unmarshal: %w", err)
-		}
-		return file.PatchEdit(e, params.Path, params.OldString, params.NewString)
 
 	case "run_command":
 		var params struct {

@@ -9,7 +9,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
 
-func ReadFile(e *types.Executor, path string) (string, error) {
+func read(e *types.Executor, path string) (string, error) {
 	fullPath := getFullPath(e, path)
 
 	if isExclude(e, fullPath) {

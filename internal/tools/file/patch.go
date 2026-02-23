@@ -8,7 +8,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
 
-func PatchEdit(e *types.Executor, path, oldString, newString string) (string, error) {
+func patch(e *types.Executor, path, oldString, newString string) (string, error) {
 	fullPath := getFullPath(e, path)
 
 	if isExclude(e, fullPath) {
