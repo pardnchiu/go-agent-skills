@@ -203,7 +203,7 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 					}
 				}
 
-				result, err := tools.Execute(exec, toolName, json.RawMessage(e.Function.Arguments))
+				result, err := tools.Execute(ctx, exec, toolName, json.RawMessage(e.Function.Arguments))
 				if err != nil {
 					result = "Error: " + err.Error()
 				}

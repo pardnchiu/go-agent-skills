@@ -55,7 +55,7 @@ func runCommand(e *types.Executor, command string) (string, error) {
 	}
 
 	// TODO: need to change to dynamic timeout based on command complexity
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
 	var cmd *exec.Cmd

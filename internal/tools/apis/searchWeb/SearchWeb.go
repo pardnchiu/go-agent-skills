@@ -1,0 +1,67 @@
+package searchWeb
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+)
+
+type ResultData struct {
+	Position    int    `json:"position"`
+	Title       string `json:"title"`
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+}
+
+type TimeRange string
+
+const (
+	TimeRange1h    TimeRange = "1h"
+	TimeRange3h    TimeRange = "3h"
+	TimeRange6h    TimeRange = "6h"
+	TimeRange12h   TimeRange = "12h"
+	TimeRange1d    TimeRange = "1d"
+	TimeRange7d    TimeRange = "7d"
+	TimeRangeMonth TimeRange = "1m"
+	TimeRangeYear  TimeRange = "1y"
+)
+
+func (t TimeRange) valid() bool {
+	switch t {
+	case TimeRange1h, TimeRange3h, TimeRange6h, TimeRange12h,
+		TimeRange1d, TimeRange7d, TimeRangeMonth, TimeRangeYear:
+		return true
+	}
+	return false
+}
+
+func Search(ctx context.Context, query string, timeRange TimeRange, limit int) (string, error) {
+	if strings.TrimSpace(query) == "" {
+		return "", fmt.Errorf("query is empty")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	if timeRange != "" && !timeRange.valid() {
+		return "", fmt.Errorf("invalid time range %q: must be one of 1h, 3h, 6h, 12h, 1d, 7d, 1m, 1y", timeRange)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	results, err := fetchDDG(ctx, query, timeRange, limit)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := json.Marshal(results)
+	if err != nil {
+		return "", fmt.Errorf("json.Marshal: %w", err)
+	}
+	return string(out), nil
+}

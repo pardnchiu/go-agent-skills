@@ -2,6 +2,7 @@ package tools
 
 import (
 	_ "embed"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +11,9 @@ import (
 
 	"github.com/pardnchiu/go-agent-skills/internal/tools/apiAdapter"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/apis"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/apis/searchWeb"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/browser"
+	"github.com/pardnchiu/go-agent-skills/internal/tools/calculator"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/file"
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
@@ -66,7 +69,7 @@ func NewExecutor(workPath string) (*types.Executor, error) {
 	}, nil
 }
 
-func Execute(e *types.Executor, name string, args json.RawMessage) (string, error) {
+func Execute(ctx context.Context, e *types.Executor, name string, args json.RawMessage) (string, error) {
 	// * get all api tools
 	if strings.HasPrefix(name, "api_") && e.APIToolbox != nil && e.APIToolbox.IsExist(name) {
 		var params map[string]any
@@ -105,6 +108,26 @@ func Execute(e *types.Executor, name string, args json.RawMessage) (string, erro
 			return "", err
 		}
 		return result, nil
+
+	case "search_web":
+		var params struct {
+			Query string `json:"query"`
+			Range string `json:"range"`
+			Limit int    `json:"limit"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
+		}
+		return searchWeb.Search(ctx, params.Query, searchWeb.TimeRange(params.Range), params.Limit)
+
+	case "calculate":
+		var params struct {
+			Expression string `json:"expression"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
+		}
+		return calculator.Calc(params.Expression)
 
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)

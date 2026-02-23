@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,6 +33,15 @@ func GET[T any](ctx context.Context, client *http.Client, api string, header map
 	defer resp.Body.Close()
 
 	statusCode := resp.StatusCode
+
+	if s, ok := any(&result).(*string); ok {
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return result, statusCode, err
+		}
+		*s = string(b)
+		return result, statusCode, nil
+	}
 
 	ct := resp.Header.Get("Content-Type")
 	switch {
@@ -95,6 +105,15 @@ func POST[T any](ctx context.Context, client *http.Client, api string, header ma
 	defer resp.Body.Close()
 
 	statusCode := resp.StatusCode
+
+	if s, ok := any(&result).(*string); ok {
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return result, statusCode, fmt.Errorf("failed to read: %w", err)
+		}
+		*s = string(b)
+		return result, statusCode, nil
+	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return result, statusCode, fmt.Errorf("failed to read: %w", err)

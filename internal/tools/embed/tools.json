@@ -280,5 +280,51 @@
         "required": ["url"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_web",
+      "description": "使用 Google 搜尋網路內容，返回標題、網址與摘要列表（JSON 格式）。適合查詢一般資訊、技術文件、產品資料等。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜尋關鍵字或問題"
+          },
+          "range": {
+            "type": "string",
+            "description": "時間範圍過濾：1h（1小時）、3h（3小時）、6h（6小時）、12h（12小時）、1d（1天）、7d（7天）、1m（1個月）、1y（1年）。不傳則無限制。",
+            "enum": ["1h", "3h", "6h", "12h", "1d", "7d", "1m", "1y"]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回結果數量上限（預設 10，最大 50）",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate",
+      "description": "執行數學運算，返回精確結果。支援四則運算（+、-、*、/）、取模（%）、括號、冪次（用 ^ 符號）及數學函式（sqrt、abs、ceil、floor、round、log、log2、log10、sin、cos、tan、pow）。pow 需傳入兩個引數：pow(base, exp)。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "description": "數學表達式，例如 '(100 + 200) * 3'、'10 % 3'、'2 ^ 10'、'sqrt(2)'、'pow(2, 10)'、'1000000 * 0.07 / 12'"
+          }
+        },
+        "required": ["expression"]
+      }
+    }
   }
 ]
