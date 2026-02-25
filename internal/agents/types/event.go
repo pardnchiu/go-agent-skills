@@ -20,5 +20,5 @@ type Event struct {
 	ToolID   string    `json:"tool_id,omitempty"`
 	Result   string    `json:"result,omitempty"`
 	Err      error     `json:"-"`
-	ReplyCh  chan bool  `json:"-"`
+	ReplyCh  chan bool `json:"-"`
 }

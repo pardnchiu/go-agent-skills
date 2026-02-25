@@ -23,7 +23,7 @@ var toolsMap []byte
 //go:embed embed/commands.json
 var allowCommand []byte
 
-func NewExecutor(workPath string) (*types.Executor, error) {
+func NewExecutor(workPath, sessionID string) (*types.Executor, error) {
 	var tools []types.Tool
 	if err := json.Unmarshal(toolsMap, &tools); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal: %w", err)
@@ -60,6 +60,7 @@ func NewExecutor(workPath string) (*types.Executor, error) {
 
 	return &types.Executor{
 		WorkPath:       workPath,
+		SessionID:      sessionID,
 		AllowedCommand: allowedCommand,
 		Exclude:        file.ListExcludes(workPath),
 		Tools:          tools,
@@ -78,7 +79,7 @@ func Execute(ctx context.Context, e *types.Executor, name string, args json.RawM
 	}
 
 	switch name {
-	case "read_file", "list_files", "glob_files", "search_content", "write_file", "patch_edit":
+	case "read_file", "list_files", "glob_files", "search_content", "search_history", "write_file", "patch_edit":
 		return file.Routes(e, name, args)
 
 	case "send_http_request", "fetch_yahoo_finance", "fetch_google_rss", "fetch_weather":

@@ -72,6 +72,10 @@ func Run(ctx context.Context, agent Agent, scanner *skill.Scanner, userInput str
 	if err != nil {
 		return fmt.Errorf("os.Getwd: %w", err)
 	}
+	events <- atypes.Event{
+		Type: atypes.EventText,
+		Text: fmt.Sprintf("Matching Skills"),
+	}
 
 	matchedSkill := selectSkill(ctx, agent, scanner, userInput)
 	if matchedSkill != nil {
@@ -89,11 +93,6 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 		skill = nil
 	}
 
-	exec, err := tools.NewExecutor(workDir)
-	if err != nil {
-		return fmt.Errorf("tools.NewExecutor: %w", err)
-	}
-
 	configDir, err := utils.ConfigDir("sessions")
 	if err != nil {
 		return fmt.Errorf("utils.ConfigDir: %w", err)
@@ -101,8 +100,16 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 
 	prompt := getSystemPrompt(workDir, skill)
 	sessionData, sessionID, err := getSession(prompt, userInput)
+	if err != nil {
+		return fmt.Errorf("getSession: %w", err)
+	}
 
-	var alreadyCall map[string]bool
+	exec, err := tools.NewExecutor(workDir, sessionID)
+	if err != nil {
+		return fmt.Errorf("tools.NewExecutor: %w", err)
+	}
+
+	alreadyCall := make(map[string]string)
 	for i := 0; i < MaxToolIterations; i++ {
 		resp, err := agent.Send(ctx, sessionData.messages, exec.Tools)
 		if err != nil {
@@ -110,7 +117,8 @@ func Execute(ctx context.Context, agent Agent, workDir string, skill *skill.Skil
 		}
 
 		if len(resp.Choices) == 0 {
-			return fmt.Errorf("no choices")
+			events <- atypes.Event{Type: atypes.EventDone}
+			return nil
 		}
 
 		choice := resp.Choices[0]

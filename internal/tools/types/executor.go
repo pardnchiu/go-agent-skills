@@ -8,6 +8,7 @@ import (
 
 type Executor struct {
 	WorkPath       string
+	SessionID      string
 	Allowed        []string // limit to these folders to use
 	AllowedCommand map[string]bool
 	Exclude        []Exclude

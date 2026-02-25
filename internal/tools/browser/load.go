@@ -55,7 +55,7 @@ func Load(url string) (string, error) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	content, err := load(ctx, url)
@@ -160,7 +160,7 @@ func fetch(ctx context.Context, browser *rod.Browser, url string) (*rod.Page, er
 	_ = page.WaitIdle(networkIdleTimeout)
 
 	// * wait 4s after onload for dynamic content to settle
-	stableCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	stableCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := page.Context(stableCtx).Eval(listenerJS); err != nil {
 		_ = page.Close()

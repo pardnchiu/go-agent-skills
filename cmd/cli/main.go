@@ -78,7 +78,6 @@ func main() {
 		scanner := skill.NewScanner()
 
 		// 嘗試第二個參數是否為已知 skill name
-		start := time.Now()
 		if len(os.Args) >= 4 {
 			if targetSkill, ok := scanner.Skills.ByName[os.Args[2]]; ok {
 				// 明確指定 skill：run <skill_name> <input>
@@ -92,7 +91,6 @@ func main() {
 					slog.Error("failed to execute skill", slog.String("error", err.Error()))
 					os.Exit(1)
 				}
-				fmt.Printf("\n[*] Total time: %s\n", time.Since(start).Round(time.Millisecond))
 				return
 			}
 		}
@@ -107,7 +105,6 @@ func main() {
 			slog.Error("failed to execute", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-		fmt.Printf("\n[*] Total time: %s\n", time.Since(start).Round(time.Millisecond))
 
 		// agent := selectAgent()
 		// scanner := skill.NewScanner()
@@ -133,31 +130,31 @@ func printTool(ev atypes.Event) {
 
 	switch ev.ToolName {
 	case "read_file":
-		fmt.Printf("[*] Read File — \033[36m%s\033[0m\n", args["path"])
+		fmt.Printf("\r\033[K[*] Read File — \033[36m%s\033[0m", args["path"])
 	case "list_files":
-		fmt.Printf("[*] List Directory — \033[36m%s\033[0m\n", args["path"])
+		fmt.Printf("\r\033[K[*] List Directory — \033[36m%s\033[0m", args["path"])
 	case "glob_files":
-		fmt.Printf("[*] Glob Files — \033[35m%s\033[0m\n", args["pattern"])
+		fmt.Printf("\r\033[K[*] Glob Files — \033[35m%s\033[0m", args["pattern"])
 	case "write_file":
-		fmt.Printf("[*] Write File — \033[33m%s\033[0m\n", args["path"])
+		fmt.Printf("\r\033[K[*] Write File — \033[33m%s\033[0m", args["path"])
 	case "search_content":
-		fmt.Printf("[*] Search Content — \033[35m%s\033[0m\n", args["pattern"])
+		fmt.Printf("[\r\033[K*] Search Content — \033[35m%s\033[0m", args["pattern"])
 	case "patch_edit":
-		fmt.Printf("[*] Patch Edit — \033[33m%s\033[0m\n", args["path"])
+		fmt.Printf("\r\033[K[*] Patch Edit — \033[33m%s\033[0m", args["path"])
 	case "run_command":
-		fmt.Printf("[*] Run Command — \033[32m%s\033[0m\n", args["command"])
+		fmt.Printf("\r\033[K[*] Run Command — \033[32m%s\033[0m", args["command"])
 	case "fetch_yahoo_finance":
-		fmt.Printf("[*] Fetch Ticker — \033[34m%s (%s)\033[0m\n", args["symbol"], args["range"])
+		fmt.Printf("\r\033[K[*] Fetch Ticker — \033[34m%s (%s)\033[0m", args["symbol"], args["range"])
 	case "fetch_google_rss":
-		fmt.Printf("[*] Fetch News — \033[34m%s (%s)\033[0m\n", args["keyword"], args["time"])
+		fmt.Printf("\r\033[K[*] Fetch News — \033[34m%s (%s)\033[0m", args["keyword"], args["time"])
 	case "fetch_page":
 		url := fmt.Sprintf("%v", args["url"])
 		if len(url) > 64 {
 			url = url[:61] + "..."
 		}
-		fmt.Printf("[*] Fetch Page — \033[34m%s\033[0m\n", url)
+		fmt.Printf("\r\033[K[*] Fetch Page — \033[34m%s\033[0m", url)
 	default:
-		fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", ev.ToolName, ev.ToolArgs)
+		fmt.Printf("\r\033[K[*] Tool: %s — \033[90m%s\033[0m", ev.ToolName, ev.ToolArgs)
 	}
 }
 
@@ -168,6 +165,7 @@ func printContent(ev atypes.Event) {
 }
 
 func runWithEvents(_ context.Context, cancel context.CancelFunc, fn func(chan<- atypes.Event) error) error {
+	start := time.Now()
 	ch := make(chan atypes.Event, 16)
 	var execErr error
 
@@ -179,7 +177,7 @@ func runWithEvents(_ context.Context, cancel context.CancelFunc, fn func(chan<- 
 	for ev := range ch {
 		switch ev.Type {
 		case atypes.EventText:
-			fmt.Printf("[*] %s\n", ev.Text)
+			fmt.Printf("\r\033[K[*] %s", ev.Text)
 
 		case atypes.EventToolCall:
 			printTool(ev)
@@ -217,6 +215,8 @@ func runWithEvents(_ context.Context, cancel context.CancelFunc, fn func(chan<- 
 			}
 
 		case atypes.EventDone:
+			fmt.Printf(" (%s)", time.Since(start).Round(time.Millisecond))
+			fmt.Println()
 		}
 	}
 

@@ -47,6 +47,16 @@ func Routes(e *types.Executor, name string, args json.RawMessage) (string, error
 		}
 		return search(e, params.Pattern, params.FilePattern)
 
+	case "search_history":
+		var params struct {
+			Keyword string `json:"keyword"`
+			Limit   int    `json:"limit"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return "", fmt.Errorf("json.Unmarshal: %w", err)
+		}
+		return searchHistory(e.SessionID, params.Keyword, params.Limit)
+
 	case "write_file":
 		var params struct {
 			Path    string `json:"path"`

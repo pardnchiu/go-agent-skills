@@ -99,6 +99,28 @@
   {
     "type": "function",
     "function": {
+      "name": "search_history",
+      "description": "在當前 session 的對話歷史（history.json）中搜尋關鍵字，返回包含該字詞的完整對話內容（含 role 與 content）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "要搜尋的關鍵字（不區分大小寫，literal 字串比對）"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "回傳筆數上限，由新到舊取前 N 筆。預設 10，最大建議 50。",
+            "default": 10
+          }
+        },
+        "required": ["keyword"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "patch_edit",
       "description": "透過精確字串匹配來編輯檔案。僅替換第一個匹配項。適合對檔案進行小幅修改，比 write_file 更安全。",
       "parameters": {

@@ -11,7 +11,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/tools/types"
 )
 
-func toolCall(ctx context.Context, exec *types.Executor, choice OpenAIOutputChoices, sessionData *SessionData, events chan<- atypes.Event, allowAll bool, alreadyCall map[string]bool) (*SessionData, map[string]bool, error) {
+func toolCall(ctx context.Context, exec *types.Executor, choice OpenAIOutputChoices, sessionData *SessionData, events chan<- atypes.Event, allowAll bool, alreadyCall map[string]string) (*SessionData, map[string]string, error) {
 	sessionData.messages = append(sessionData.messages, choice.Message)
 
 	for _, tool := range choice.Message.ToolCalls {
@@ -19,8 +19,12 @@ func toolCall(ctx context.Context, exec *types.Executor, choice OpenAIOutputChoi
 		toolArg := tool.Function.Arguments
 
 		hash := fmt.Sprintf("%v|%v", toolName, toolArg)
-		if alreadyCall[hash] {
-			fmt.Printf("Tool '%s' with arguments '%s' already called, skipping.\n", toolName, toolArg)
+		if cached, ok := alreadyCall[hash]; ok && cached != "" {
+			sessionData.messages = append(sessionData.messages, Message{
+				Role:       "tool",
+				Content:    cached,
+				ToolCallID: tool.ID,
+			})
 			continue
 		}
 
@@ -69,6 +73,8 @@ func toolCall(ctx context.Context, exec *types.Executor, choice OpenAIOutputChoi
 		if err != nil {
 			result = fmt.Sprintf("Error '%s': %v", toolName, err)
 		}
+
+		alreadyCall[hash] = fmt.Sprintf("Tool '%s'\nresult: %s", toolName, result)
 
 		events <- atypes.Event{
 			Type:     atypes.EventToolResult,

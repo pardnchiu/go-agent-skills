@@ -108,6 +108,10 @@ func POST[T any](ctx context.Context, client *http.Client, api string, header ma
 
 	statusCode := resp.StatusCode
 
+	if statusCode < 200 || statusCode >= 300 {
+		return result, statusCode, nil
+	}
+
 	if s, ok := any(&result).(*string); ok {
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
