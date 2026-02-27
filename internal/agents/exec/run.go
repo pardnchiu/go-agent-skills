@@ -38,7 +38,6 @@ func Run(ctx context.Context, bot atypes.Agent, registry atypes.AgentRegistry, s
 	}
 
 	agent := registry.Fallback
-	events <- atypes.Event{Type: atypes.EventText, Text: "Matching Agent"}
 	if chosen := selectAgent(ctx, bot, registry.Entries, userInput); chosen != "" {
 		if a, ok := registry.Registry[chosen]; ok {
 			agent = a
@@ -46,6 +45,8 @@ func Run(ctx context.Context, bot atypes.Agent, registry atypes.AgentRegistry, s
 		} else {
 			events <- atypes.Event{Type: atypes.EventText, Text: fmt.Sprintf("Agent %s not found, use fallback", chosen)}
 		}
+	} else {
+		events <- atypes.Event{Type: atypes.EventText, Text: fmt.Sprintf("Agent %s not found, use fallback", chosen)}
 	}
 
 	return Execute(ctx, agent, workDir, matchedSkill, userInput, events, allowAll)

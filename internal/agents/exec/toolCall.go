@@ -74,7 +74,8 @@ func toolCall(ctx context.Context, exec *types.Executor, choice atypes.OutputCho
 			result = "no data"
 		}
 
-		alreadyCall[hash] = result
+		content := fmt.Sprintf("[%s] %s", toolName, result)
+		alreadyCall[hash] = content
 
 		events <- atypes.Event{
 			Type:     atypes.EventToolResult,
@@ -84,12 +85,12 @@ func toolCall(ctx context.Context, exec *types.Executor, choice atypes.OutputCho
 		}
 		sessionData.Tools = append(sessionData.Tools, atypes.Message{
 			Role:       "tool",
-			Content:    result,
+			Content:    content,
 			ToolCallID: tool.ID,
 		})
 		sessionData.Messages = append(sessionData.Messages, atypes.Message{
 			Role:       "tool",
-			Content:    result,
+			Content:    content,
 			ToolCallID: tool.ID,
 		})
 	}

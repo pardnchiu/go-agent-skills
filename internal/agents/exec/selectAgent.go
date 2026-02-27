@@ -28,11 +28,22 @@ func GetAgentEntries() []atypes.AgentEntry {
 			continue
 		}
 		var cfg struct {
-			Models []atypes.AgentEntry `json:"models"`
+			Models       []atypes.AgentEntry `json:"models"`
+			DefaultModel string              `json:"default_model"`
 		}
-		if json.Unmarshal(data, &cfg) == nil && len(cfg.Models) > 0 {
-			return cfg.Models
+		if json.Unmarshal(data, &cfg) != nil || len(cfg.Models) == 0 {
+			continue
 		}
+		if cfg.DefaultModel != "" {
+			for i, m := range cfg.Models {
+				// * move default model to first be fallback
+				if m.Name == cfg.DefaultModel {
+					cfg.Models[0], cfg.Models[i] = cfg.Models[i], cfg.Models[0]
+					break
+				}
+			}
+		}
+		return cfg.Models
 	}
 	return []atypes.AgentEntry{}
 }
