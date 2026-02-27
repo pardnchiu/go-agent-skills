@@ -39,6 +39,8 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 	}
 
 	alreadyCall := make(map[string]string)
+	emptyCount := 0
+	const maxEmpty = 3
 	for i := 0; i < MaxToolIterations; i++ {
 		resp, err := agent.Send(ctx, sessionData.Messages, exec.Tools)
 		if err != nil {
@@ -46,9 +48,15 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 		}
 
 		if len(resp.Choices) == 0 {
-			events <- atypes.Event{Type: atypes.EventDone}
-			return nil
+			emptyCount++
+			if emptyCount >= maxEmpty {
+				events <- atypes.Event{Type: atypes.EventText, Text: "工具無法取得資料，請稍後再試或改用其他方式查詢。"}
+				events <- atypes.Event{Type: atypes.EventDone}
+				return nil
+			}
+			continue
 		}
+		emptyCount = 0
 
 		choice := resp.Choices[0]
 		if len(choice.Message.ToolCalls) > 0 {

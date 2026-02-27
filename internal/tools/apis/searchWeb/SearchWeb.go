@@ -37,15 +37,9 @@ func (t TimeRange) valid() bool {
 	return false
 }
 
-func Search(ctx context.Context, query string, timeRange TimeRange, limit int) (string, error) {
+func Search(ctx context.Context, query string, timeRange TimeRange) (string, error) {
 	if strings.TrimSpace(query) == "" {
 		return "", fmt.Errorf("query is empty")
-	}
-	if limit <= 0 {
-		limit = 10
-	}
-	if limit > 50 {
-		limit = 50
 	}
 	if timeRange != "" && !timeRange.valid() {
 		return "", fmt.Errorf("invalid time range %q: must be one of 1h, 3h, 6h, 12h, 1d, 7d, 1m, 1y", timeRange)
@@ -54,7 +48,7 @@ func Search(ctx context.Context, query string, timeRange TimeRange, limit int) (
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	results, err := fetchDDG(ctx, query, timeRange, limit)
+	results, err := fetchDDG(ctx, query, timeRange)
 	if err != nil {
 		return "", err
 	}

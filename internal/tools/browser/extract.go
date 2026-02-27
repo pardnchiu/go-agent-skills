@@ -49,14 +49,9 @@ func extract(raw, title, url string) (string, error) {
 				return
 
 			case "a":
-				href := getAttr(n, "href")
-				sb.WriteString("[")
 				for c := n.FirstChild; c != nil; c = c.NextSibling {
 					walk(c)
 				}
-				sb.WriteString("](")
-				sb.WriteString(href)
-				sb.WriteString(")")
 				return
 
 			case "strong", "b":
@@ -106,14 +101,6 @@ func extract(raw, title, url string) (string, error) {
 	return strings.TrimSpace(collapse(sb.String())), nil
 }
 
-func getAttr(n *html.Node, key string) string {
-	for _, a := range n.Attr {
-		if a.Key == key {
-			return a.Val
-		}
-	}
-	return ""
-}
 
 // * remove empty line like [\n]{2,} to be [\n]{2}
 func collapse(s string) string {

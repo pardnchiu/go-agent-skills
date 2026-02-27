@@ -112,12 +112,11 @@ func Execute(ctx context.Context, e *types.Executor, name string, args json.RawM
 		var params struct {
 			Query string `json:"query"`
 			Range string `json:"range"`
-			Limit int    `json:"limit"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("failed to unmarshal json (%s): %w", name, err)
 		}
-		return searchWeb.Search(ctx, params.Query, searchWeb.TimeRange(params.Range), params.Limit)
+		return searchWeb.Search(ctx, params.Query, searchWeb.TimeRange(params.Range))
 
 	case "calculate":
 		var params struct {

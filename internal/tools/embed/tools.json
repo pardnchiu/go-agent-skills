@@ -107,12 +107,6 @@
           "keyword": {
             "type": "string",
             "description": "要搜尋的關鍵字（不區分大小寫，literal 字串比對）"
-          },
-          "limit": {
-            "type": "integer",
-            "description": "回傳筆數上限，由新到舊取前 N 筆。預設 10，最大 20。",
-            "default": 10,
-            "maximum": 20
           }
         },
         "required": ["keyword"]
@@ -320,13 +314,6 @@
             "type": "string",
             "description": "時間範圍過濾：1h（1小時）、3h（3小時）、6h（6小時）、12h（12小時）、1d（1天）、7d（7天）、1m（1個月）、1y（1年）。不傳則無限制。",
             "enum": ["1h", "3h", "6h", "12h", "1d", "7d", "1m", "1y"]
-          },
-          "limit": {
-            "type": "integer",
-            "description": "返回結果數量上限（預設 10，最大 50）",
-            "default": 10,
-            "minimum": 1,
-            "maximum": 50
           }
         },
         "required": ["query"]

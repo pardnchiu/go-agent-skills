@@ -71,10 +71,10 @@ func toolCall(ctx context.Context, exec *types.Executor, choice atypes.OutputCho
 
 		result, err := tools.Execute(ctx, exec, toolName, json.RawMessage(tool.Function.Arguments))
 		if err != nil {
-			result = "No data available. Please try a different approach or tool."
+			result = "no data"
 		}
 
-		alreadyCall[hash] = fmt.Sprintf("Tool '%s'\nresult: %s", toolName, result)
+		alreadyCall[hash] = result
 
 		events <- atypes.Event{
 			Type:     atypes.EventToolResult,
@@ -84,12 +84,12 @@ func toolCall(ctx context.Context, exec *types.Executor, choice atypes.OutputCho
 		}
 		sessionData.Tools = append(sessionData.Tools, atypes.Message{
 			Role:       "tool",
-			Content:    fmt.Sprintf("Tool '%s'\nresult: %s", toolName, result),
+			Content:    result,
 			ToolCallID: tool.ID,
 		})
 		sessionData.Messages = append(sessionData.Messages, atypes.Message{
 			Role:       "tool",
-			Content:    fmt.Sprintf("Tool '%s'\nresult: %s", toolName, result),
+			Content:    result,
 			ToolCallID: tool.ID,
 		})
 	}

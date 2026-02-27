@@ -43,6 +43,8 @@ func Run(ctx context.Context, bot atypes.Agent, registry atypes.AgentRegistry, s
 		if a, ok := registry.Registry[chosen]; ok {
 			agent = a
 			events <- atypes.Event{Type: atypes.EventText, Text: chosen}
+		} else {
+			events <- atypes.Event{Type: atypes.EventText, Text: fmt.Sprintf("Agent %s not found, use fallback", chosen)}
 		}
 	}
 

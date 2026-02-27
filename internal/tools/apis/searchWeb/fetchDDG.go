@@ -17,7 +17,8 @@ var (
 	regexTag     = regexp.MustCompile(`<[^>]+>`)
 )
 
-func fetchDDG(ctx context.Context, query string, timeRange TimeRange, limit int) ([]ResultData, error) {
+func fetchDDG(ctx context.Context, query string, timeRange TimeRange) ([]ResultData, error) {
+	const limit = 10
 	params := map[string]any{
 		"q":  query,
 		"kl": "tw-tzh",
@@ -44,14 +45,15 @@ func fetchDDG(ctx context.Context, query string, timeRange TimeRange, limit int)
 		return nil, fmt.Errorf("utils.POST: %w", err)
 	}
 
-	results := parse(html, limit)
+	results := parse(html)
 	if len(results) == 0 {
 		return nil, fmt.Errorf("parse: %s", query)
 	}
 	return results, nil
 }
 
-func parse(html string, limit int) []ResultData {
+func parse(html string) []ResultData {
+	const limit = 10
 	matches := regexLink.FindAllString(html, -1)
 
 	var results []ResultData

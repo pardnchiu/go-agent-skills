@@ -90,8 +90,11 @@ func fetch(ctx context.Context, path string) (string, error) {
 		return "", fmt.Errorf("no result")
 	}
 
-	// * remove duplicates
+	// * remove duplicates and cap at 10
 	items := deduplicate(data.Channel.Items)
+	if len(items) > 10 {
+		items = items[:10]
+	}
 
 	out, err := json.Marshal(items)
 	if err != nil {

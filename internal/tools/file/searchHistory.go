@@ -15,15 +15,13 @@ type historyEntry struct {
 	Content string `json:"content"`
 }
 
-func searchHistory(sessionID, keyword string, limit int) (string, error) {
+func searchHistory(sessionID, keyword string) (string, error) {
+	const limit = 10
 	if keyword == "" {
 		return "", fmt.Errorf("keyword is required")
 	}
 	if sessionID == "" {
 		return "", fmt.Errorf("sessionID is required")
-	}
-	if limit <= 0 || limit > 20 {
-		limit = 20
 	}
 
 	configDir, err := utils.GetConfigDir("sessions")

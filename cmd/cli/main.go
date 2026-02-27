@@ -82,7 +82,7 @@ func main() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		selectorBot, err := nvidia.New("nvidia@openai/gpt-oss-20b")
+		selectorBot, err := nvidia.New("compat@qwen3:8b")
 		if err != nil {
 			slog.Error("failed to initialize", slog.String("error", err.Error()))
 			os.Exit(1)
