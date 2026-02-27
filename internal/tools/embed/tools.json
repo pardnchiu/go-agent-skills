@@ -100,13 +100,18 @@
     "type": "function",
     "function": {
       "name": "search_history",
-      "description": "在當前 session 的對話歷史（history.json）中搜尋關鍵字，返回包含該字詞的完整對話內容（含 role 與 content）。",
+      "description": "在當前 session 的對話歷史（history.json）中搜尋關鍵字，返回包含該字詞的完整對話內容（含 role 與 content）。支援時間範圍過濾，僅返回指定時間內的紀錄。",
       "parameters": {
         "type": "object",
         "properties": {
           "keyword": {
             "type": "string",
             "description": "要搜尋的關鍵字（不區分大小寫，literal 字串比對）"
+          },
+          "time_range": {
+            "type": "string",
+            "enum": ["1d", "7d", "1m", "1y"],
+            "description": "時間範圍過濾（1d=1天、7d=7天、1m=30天、1y=365天）。預設先用 1d，無結果再用 7d，仍無結果才考慮 1m/1y"
           }
         },
         "required": ["keyword"]

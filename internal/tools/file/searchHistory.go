@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
@@ -15,7 +17,30 @@ type historyEntry struct {
 	Content string `json:"content"`
 }
 
-func searchHistory(sessionID, keyword string) (string, error) {
+var historyTimeRanges = map[string]time.Duration{
+	"1d": 24 * time.Hour,
+	"7d": 7 * 24 * time.Hour,
+	"1m": 30 * 24 * time.Hour,
+	"1y": 365 * 24 * time.Hour,
+}
+
+func extractSec(content string) (int64, string) {
+	if !strings.HasPrefix(content, "ts:") {
+		return 0, content
+	}
+	rest := content[3:]
+	idx := strings.IndexByte(rest, '\n')
+	if idx < 0 {
+		return 0, content
+	}
+	ts, err := strconv.ParseInt(rest[:idx], 10, 64)
+	if err != nil {
+		return 0, content
+	}
+	return ts, rest[idx+1:]
+}
+
+func searchHistory(sessionID, keyword, timeRange string) (string, error) {
 	const limit = 10
 	if keyword == "" {
 		return "", fmt.Errorf("keyword is required")
@@ -44,13 +69,21 @@ func searchHistory(sessionID, keyword string) (string, error) {
 		return "", fmt.Errorf("failed to parse history file: %w", err)
 	}
 
+	var after int64
+	if d, ok := historyTimeRanges[timeRange]; ok {
+		after = time.Now().Add(-d).Unix()
+	}
+
 	lower := strings.ToLower(keyword)
 	var matches []historyEntry
 
-	// 排除最新的 4 筆紀錄（always include）
 	for i := len(entries) - 5; i >= 0; i-- {
 		entry := entries[i]
-		if strings.Contains(strings.ToLower(entry.Content), lower) {
+		ts, body := extractSec(entry.Content)
+		if after > 0 && ts > 0 && ts < after {
+			continue
+		}
+		if strings.Contains(strings.ToLower(body), lower) {
 			matches = append(matches, entry)
 			if len(matches) >= limit {
 				break

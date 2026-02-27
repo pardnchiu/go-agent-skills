@@ -19,7 +19,7 @@ type IndexData struct {
 }
 
 func getSession(prompt string, userInput string) (*atypes.AgentSession, string, error) {
-	now := time.Now().Format("2006-01-02T15:04:05 MST (UTC-07:00)")
+	now := fmt.Sprintf("%d", time.Now().Unix())
 	input := atypes.AgentSession{
 		Tools: []atypes.Message{},
 		Messages: []atypes.Message{
@@ -55,7 +55,7 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 				if err := json.Unmarshal(data, &oldHistory); err == nil {
 					input.Histories = oldHistory
 				}
-				input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
+				input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 
 				input.Messages = append(input.Messages, atypes.Message{Role: "system", Content: summary})
 				recentHistory := oldHistory
@@ -63,7 +63,7 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 					recentHistory = recentHistory[len(recentHistory)-4:]
 				}
 				input.Messages = append(input.Messages, recentHistory...)
-				input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
+				input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 			}
 		}
 	} else {
@@ -73,8 +73,8 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 		}
 		indexData := IndexData{SessionID: sessionID}
 
-		input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
-		input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
+		input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
+		input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 
 		indexDataBytes, err := json.Marshal(indexData)
 		if err != nil {

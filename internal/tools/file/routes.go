@@ -49,12 +49,13 @@ func Routes(e *types.Executor, name string, args json.RawMessage) (string, error
 
 	case "search_history":
 		var params struct {
-			Keyword string `json:"keyword"`
+			Keyword   string `json:"keyword"`
+			TimeRange string `json:"time_range"`
 		}
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
-		return searchHistory(e.SessionID, params.Keyword)
+		return searchHistory(e.SessionID, params.Keyword, params.TimeRange)
 
 	case "write_file":
 		var params struct {

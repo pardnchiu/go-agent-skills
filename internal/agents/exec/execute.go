@@ -38,10 +38,15 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 		return fmt.Errorf("tools.NewExecutor: %w", err)
 	}
 
+	limit := MaxToolIterations
+	if skill != nil {
+		limit = int(^uint(0) >> 1) // math.MaxInt without import
+	}
+
 	alreadyCall := make(map[string]string)
 	emptyCount := 0
 	const maxEmpty = 3
-	for i := 0; i < MaxToolIterations; i++ {
+	for i := 0; i < limit; i++ {
 		resp, err := agent.Send(ctx, sessionData.Messages, exec.Tools)
 		if err != nil {
 			return err
@@ -77,7 +82,7 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 
 			events <- atypes.Event{Type: atypes.EventText, Text: cleaned}
 
-			choice.Message.Content = fmt.Sprintf("當前時間：%s\n%s", time.Now().Format("2006-01-02T15:04:05 MST (UTC-07:00)"), cleaned)
+			choice.Message.Content = fmt.Sprintf("ts:%d\n%s", time.Now().Unix(), cleaned)
 
 			sessionData.Messages = append(sessionData.Messages, choice.Message)
 
@@ -109,7 +114,23 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 		return nil
 	}
 
-	return fmt.Errorf("exceeded max iterations (%d)", MaxToolIterations)
+	summaryMessages := append(sessionData.Messages, atypes.Message{
+		Role:    "user",
+		Content: "請根據以上工具查詢結果，整理並總結回答原始問題。",
+	})
+	resp, err := agent.Send(ctx, summaryMessages, nil)
+	if err == nil && len(resp.Choices) > 0 {
+		if text, ok := resp.Choices[0].Message.Content.(string); ok && text != "" {
+			cleaned := extractSummary(configDir, sessionID, text)
+			events <- atypes.Event{Type: atypes.EventText, Text: cleaned}
+			events <- atypes.Event{Type: atypes.EventDone}
+			return nil
+		}
+	}
+
+	events <- atypes.Event{Type: atypes.EventText, Text: "工具無法取得資料，請稍後再試或改用其他方式查詢。"}
+	events <- atypes.Event{Type: atypes.EventDone}
+	return nil
 }
 
 func getSystemPrompt(workDir string, skill *skill.Skill) string {

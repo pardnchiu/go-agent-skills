@@ -469,7 +469,7 @@ The system defaults to a maximum of 32 tool call iterations to prevent LLM infin
 import "github.com/pardnchiu/go-agent-skills/internal/agents"
 
 func init() {
-    agents.MaxToolIterations = 64  // Adjust to 64 iterations
+    agents.MaxToolIterations = 8  // Adjust to 64 iterations
 }
 ```
 

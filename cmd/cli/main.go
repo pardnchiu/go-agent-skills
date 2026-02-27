@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -129,7 +130,11 @@ func printTool(ev atypes.Event) {
 		}
 		fmt.Printf("[*] Fetch Page — \033[34m%s\033[0m\n", url)
 	default:
-		fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", ev.ToolName, ev.ToolArgs)
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		enc.Encode(args)
+		fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", ev.ToolName, strings.TrimSpace(buf.String()))
 	}
 }
 

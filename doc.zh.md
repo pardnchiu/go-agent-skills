@@ -469,7 +469,7 @@ func main() {
 import "github.com/pardnchiu/go-agent-skills/internal/agents"
 
 func init() {
-    agents.MaxToolIterations = 64  // 調整至 64 次
+    agents.MaxToolIterations = 8  // 調整至 64 次
 }
 ```
 

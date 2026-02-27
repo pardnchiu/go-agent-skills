@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/pardnchiu/go-agent-skills/internal/tools/apiAdapter"
@@ -68,7 +69,26 @@ func NewExecutor(workPath, sessionID string) (*types.Executor, error) {
 	}, nil
 }
 
+func normalizeArgs(args json.RawMessage) json.RawMessage {
+	var m map[string]any
+	if err := json.Unmarshal(args, &m); err != nil {
+		return args
+	}
+	for k, v := range m {
+		if s, ok := v.(string); ok {
+			if unquoted, err := strconv.Unquote(`"` + s + `"`); err == nil {
+				m[k] = unquoted
+			}
+		}
+	}
+	if out, err := json.Marshal(m); err == nil {
+		return out
+	}
+	return args
+}
+
 func Execute(ctx context.Context, e *types.Executor, name string, args json.RawMessage) (string, error) {
+	args = normalizeArgs(args)
 	// * get all api tools
 	if strings.HasPrefix(name, "api_") && e.APIToolbox != nil && e.APIToolbox.IsExist(name) {
 		var params map[string]any
