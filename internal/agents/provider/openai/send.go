@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	defaultModel = "gpt-5-nano"
-	chatAPI      = "https://api.openai.com/v1/chat/completions"
+	chatAPI = "https://api.openai.com/v1/chat/completions"
 )
 
 func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput string, events chan<- atypes.Event, allowAll bool) error {

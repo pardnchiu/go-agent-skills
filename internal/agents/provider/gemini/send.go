@@ -13,10 +13,7 @@ import (
 )
 
 var (
-	// gemini-2.5-pro   1m/64k
-	// gemini-2.5-flash 1m/64k
-	defaultModel = "gemini-2.5-pro"
-	baseAPI      = "https://generativelanguage.googleapis.com/v1beta/models/"
+	baseAPI = "https://generativelanguage.googleapis.com/v1beta/models/"
 )
 
 func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput string, events chan<- atypes.Event, allowAll bool) error {

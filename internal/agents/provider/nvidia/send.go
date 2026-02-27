@@ -12,12 +12,7 @@ import (
 )
 
 var (
-	// openai/gpt-oss-120b
-	// z-ai/glm4.7
-	// qwen/qwen3-235b-a22b
-	// qwen/qwen3-coder-480b-a35b-instruct
-	defaultModel = "openai/gpt-oss-120b"
-	chatAPI      = "https://integrate.api.nvidia.com/v1/chat/completions"
+	chatAPI = "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
 func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput string, events chan<- atypes.Event, allowAll bool) error {

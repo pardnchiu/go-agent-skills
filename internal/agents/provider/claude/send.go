@@ -13,12 +13,8 @@ import (
 )
 
 var (
-	// claude-sonnet-4-5 200K/64000
-	// claude-opus-4-6   200K/128K
-	// claude-opus-4-5   200K/128K
-	defaultModel = "claude-sonnet-4-5"
-	messagesAPI  = "https://api.anthropic.com/v1/messages"
-	maxTokens    = 16384
+	messagesAPI = "https://api.anthropic.com/v1/messages"
+	maxTokens   = 16384
 )
 
 func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput string, events chan<- atypes.Event, allowAll bool) error {

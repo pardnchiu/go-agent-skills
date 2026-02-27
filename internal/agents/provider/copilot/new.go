@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
@@ -28,13 +29,26 @@ type Agent struct {
 	tokenDir   string
 }
 
-func New() (*Agent, error) {
+var (
+	// gpt-4.1      1m/32k
+	// gpt-4.1-mini 1m/32k
+	// gpt-5-mini   400k/128k
+	// gpt-4o       128k/4k
+	defaultModel = "gpt-4.1"
+	prefix       = "copilot@"
+)
+
+func New(model ...string) (*Agent, error) {
+	if len(model) > 0 && strings.HasPrefix(model[0], prefix) {
+		defaultModel = strings.TrimPrefix(model[0], prefix)
+	}
+
 	workDir, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("os.Getwd: %w", err)
 	}
 
-	configDir, err := utils.ConfigDir()
+	configDir, err := utils.GetConfigDir()
 	if err != nil {
 		return nil, fmt.Errorf("utils.ConfigDir(: %w", err)
 	}

@@ -74,51 +74,25 @@ func main() {
 
 		allowAll := slices.Contains(os.Args[3:], "--allow")
 
-		agent := selectAgent()
+		agentRegistry := getAgentRegistry()
 		scanner := skill.NewScanner()
-
-		// 嘗試第二個參數是否為已知 skill name
-		if len(os.Args) >= 4 {
-			if targetSkill, ok := scanner.Skills.ByName[os.Args[2]]; ok {
-				// 明確指定 skill：run <skill_name> <input>
-				userInput := os.Args[3]
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-
-				if err := runWithEvents(ctx, cancel, func(ch chan<- atypes.Event) error {
-					return agent.Execute(ctx, targetSkill, userInput, ch, allowAll)
-				}); err != nil && ctx.Err() == nil {
-					slog.Error("failed to execute skill", slog.String("error", err.Error()))
-					os.Exit(1)
-				}
-				return
-			}
-		}
 
 		userInput := os.Args[2]
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		selectorBot, err := nvidia.New("nvidia@openai/gpt-oss-20b")
+		if err != nil {
+			slog.Error("failed to initialize", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+
 		if err := runWithEvents(ctx, cancel, func(ch chan<- atypes.Event) error {
-			return exec.Run(ctx, agent, scanner, userInput, ch, allowAll)
+			return exec.Run(ctx, selectorBot, agentRegistry, scanner, userInput, ch, allowAll)
 		}); err != nil && ctx.Err() == nil {
 			slog.Error("failed to execute", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-
-		// agent := selectAgent()
-		// scanner := skill.NewScanner()
-		// targetSkill, ok := scanner.Skills.ByName[skillName]
-		// if !ok {
-		// 	slog.Error("skill not found", slog.String("name", skillName))
-		// 	os.Exit(1)
-		// }
-
-		// ctx := context.Background()
-		// if err := agent.Execute(ctx, targetSkill, userInput, os.Stdout, allowAll); err != nil {
-		// 	slog.Error("failed to execute skill", slog.String("error", err.Error()))
-		// 	os.Exit(1)
-		// }
 		return
 	}
 
@@ -130,31 +104,31 @@ func printTool(ev atypes.Event) {
 
 	switch ev.ToolName {
 	case "read_file":
-		fmt.Printf("\r\033[K[*] Read File — \033[36m%s\033[0m", args["path"])
+		fmt.Printf("[*] Read File — \033[36m%s\033[0m\n", args["path"])
 	case "list_files":
-		fmt.Printf("\r\033[K[*] List Directory — \033[36m%s\033[0m", args["path"])
+		fmt.Printf("[*] List Directory — \033[36m%s\033[0m\n", args["path"])
 	case "glob_files":
-		fmt.Printf("\r\033[K[*] Glob Files — \033[35m%s\033[0m", args["pattern"])
+		fmt.Printf("[*] Glob Files — \033[35m%s\033[0m\n", args["pattern"])
 	case "write_file":
-		fmt.Printf("\r\033[K[*] Write File — \033[33m%s\033[0m", args["path"])
+		fmt.Printf("[*] Write File — \033[33m%s\033[0m\n", args["path"])
 	case "search_content":
-		fmt.Printf("[\r\033[K*] Search Content — \033[35m%s\033[0m", args["pattern"])
+		fmt.Printf("[*] Search Content — \033[35m%s\033[0m\n", args["pattern"])
 	case "patch_edit":
-		fmt.Printf("\r\033[K[*] Patch Edit — \033[33m%s\033[0m", args["path"])
+		fmt.Printf("[*] Patch Edit — \033[33m%s\033[0m\n", args["path"])
 	case "run_command":
-		fmt.Printf("\r\033[K[*] Run Command — \033[32m%s\033[0m", args["command"])
+		fmt.Printf("[*] Run Command — \033[32m%s\033[0m\n", args["command"])
 	case "fetch_yahoo_finance":
-		fmt.Printf("\r\033[K[*] Fetch Ticker — \033[34m%s (%s)\033[0m", args["symbol"], args["range"])
+		fmt.Printf("[*] Fetch Ticker — \033[34m%s (%s)\033[0m\n", args["symbol"], args["range"])
 	case "fetch_google_rss":
-		fmt.Printf("\r\033[K[*] Fetch News — \033[34m%s (%s)\033[0m", args["keyword"], args["time"])
+		fmt.Printf("[*] Fetch News — \033[34m%s (%s)\033[0m\n", args["keyword"], args["time"])
 	case "fetch_page":
 		url := fmt.Sprintf("%v", args["url"])
 		if len(url) > 64 {
 			url = url[:61] + "..."
 		}
-		fmt.Printf("\r\033[K[*] Fetch Page — \033[34m%s\033[0m", url)
+		fmt.Printf("[*] Fetch Page — \033[34m%s\033[0m\n", url)
 	default:
-		fmt.Printf("\r\033[K[*] Tool: %s — \033[90m%s\033[0m", ev.ToolName, ev.ToolArgs)
+		fmt.Printf("[*] Tool: %s — \033[90m%s\033[0m\n", ev.ToolName, ev.ToolArgs)
 	}
 }
 
@@ -177,7 +151,7 @@ func runWithEvents(_ context.Context, cancel context.CancelFunc, fn func(chan<- 
 	for ev := range ch {
 		switch ev.Type {
 		case atypes.EventText:
-			fmt.Printf("\r\033[K[*] %s", ev.Text)
+			fmt.Printf("[*] %s\n", ev.Text)
 
 		case atypes.EventToolCall:
 			printTool(ev)
@@ -223,68 +197,46 @@ func runWithEvents(_ context.Context, cancel context.CancelFunc, fn func(chan<- 
 	return execErr
 }
 
-func selectAgent() exec.Agent {
-	prompt := promptui.Select{
-		Label: "Select Agent",
-		Items: []string{
-			"GitHub Copilot",
-			"OpenAI",
-			"Claude",
-			"Gemini",
-			"Nvidia",
-		},
-		HideSelected: true,
+func getAgentRegistry() exec.AgentRegistryData {
+	newFn := map[string]func(string) (exec.Agent, error){
+		"copilot": func(m string) (exec.Agent, error) { return copilot.New(m) },
+		"openai":  func(m string) (exec.Agent, error) { return openai.New(m) },
+		"claude":  func(m string) (exec.Agent, error) { return claude.New(m) },
+		"gemini":  func(m string) (exec.Agent, error) { return gemini.New(m) },
+		"nvidia":  func(m string) (exec.Agent, error) { return nvidia.New(m) },
 	}
 
-	idx, _, err := prompt.Run()
-	if err != nil {
-		slog.Error("agent selection failed", slog.String("error", err.Error()))
+	agentEntries := exec.GetAgentEntries()
+	// var fallback exec.Agent
+	// registry := make(map[string]exec.Agent, len(agentEntries))
+	// entries := make([]exec.AgentEntryData, 0, len(agentEntries))
+
+	agentRegistry := exec.AgentRegistryData{
+		Registry: make(map[string]exec.Agent, len(agentEntries)),
+		Entries:  make([]exec.AgentEntryData, 0, len(agentEntries)),
+	}
+	for _, e := range agentEntries {
+		provider := strings.SplitN(e.Name, "@", 2)[0]
+		fn, ok := newFn[provider]
+		if !ok {
+			continue
+		}
+		a, err := fn(e.Name)
+		if err != nil {
+			slog.Warn("failed to initialize agent", slog.String("name", e.Name), slog.String("error", err.Error()))
+			continue
+		}
+		agentRegistry.Registry[e.Name] = a
+		agentRegistry.Entries = append(agentRegistry.Entries, e)
+		if agentRegistry.Fallback == nil {
+			agentRegistry.Fallback = a
+		}
+	}
+
+	if agentRegistry.Fallback == nil {
+		slog.Error("no agent available; check API keys")
 		os.Exit(1)
 	}
 
-	switch idx {
-	case 0:
-		agent, err := copilot.New()
-		if err != nil {
-			slog.Error("failed to initialize Copilot", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		return agent
-
-	case 1:
-		agent, err := openai.New()
-		if err != nil {
-			slog.Error("failed to initialize OpenAI", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		return agent
-
-	case 2:
-		agent, err := claude.New()
-		if err != nil {
-			slog.Error("failed to initialize Anthropic", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		return agent
-
-	case 3:
-		agent, err := gemini.New()
-		if err != nil {
-			slog.Error("failed to initialize Anthropic", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		return agent
-
-	case 4:
-		agent, err := nvidia.New()
-		if err != nil {
-			slog.Error("failed to initialize Anthropic", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		return agent
-
-	default:
-		os.Exit(1)
-		return nil
-	}
+	return agentRegistry
 }

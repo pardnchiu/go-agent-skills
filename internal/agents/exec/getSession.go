@@ -2,6 +2,7 @@ package exec
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,13 +33,13 @@ func getSession(prompt string, userInput string) (*SessionData, string, error) {
 		histories: []Message{},
 	}
 
-	configDir, err := utils.ConfigDir("sessions")
+	configDir, err := utils.GetConfigDir("sessions")
 	if err != nil {
 		fmt.Printf("utils.ConfigDir: %v\n", err)
 		return nil, "", err
 	}
 
-	indexJSONPath := filepath.Join(configDir.Home, "index.json")
+	indexJSONPath := filepath.Join(configDir.Home, "..", "config.json")
 	var sessionID string
 	if data, err := os.ReadFile(indexJSONPath); err == nil {
 		var indexData IndexData
@@ -62,11 +63,11 @@ func getSession(prompt string, userInput string) (*SessionData, string, error) {
 				input.histories = append(input.histories, Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
 
 				input.messages = append(input.messages, Message{Role: "system", Content: summary})
-				// recentHistory := oldHistory
-				// if len(recentHistory) > 4 {
-				// 	recentHistory = recentHistory[len(recentHistory)-4:]
-				// }
-				// input.messages = append(input.messages, recentHistory...)
+				recentHistory := oldHistory
+				if len(recentHistory) > 4 {
+					recentHistory = recentHistory[len(recentHistory)-4:]
+				}
+				input.messages = append(input.messages, recentHistory...)
 				input.messages = append(input.messages, Message{Role: "user", Content: fmt.Sprintf("當前時間：%s\n%s", now, userInput)})
 			}
 		}
@@ -102,9 +103,8 @@ func newSessionID() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("rand.Read: %w", err)
 	}
-	// Set version 4 and variant bits
 	b[6] = (b[6] & 0x0f) | 0x40
 	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:]), nil
+	h := hex.EncodeToString(b)
+	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:], nil
 }

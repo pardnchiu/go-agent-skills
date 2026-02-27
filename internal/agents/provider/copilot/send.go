@@ -12,11 +12,7 @@ import (
 )
 
 var (
-	// gpt-4.1    1m/32k
-	// gpt-5-mini 400k/128k
-	// gpt-4o     128k/4k
-	defaultModel = "gpt-4.1"
-	chatAPI      = "https://api.githubcopilot.com/chat/completions"
+	chatAPI = "https://api.githubcopilot.com/chat/completions"
 )
 
 func (a *Agent) Execute(ctx context.Context, skill *skill.Skill, userInput string, events chan<- atypes.Event, allowAll bool) error {
