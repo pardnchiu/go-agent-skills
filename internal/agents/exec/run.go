@@ -30,12 +30,9 @@ func Run(ctx context.Context, bot atypes.Agent, registry atypes.AgentRegistry, s
 		return fmt.Errorf("os.Getwd: %w", err)
 	}
 
-	events <- atypes.Event{Type: atypes.EventText, Text: "Matching Skills"}
 	matchedSkill := selectSkill(ctx, bot, scanner, userInput)
 	if matchedSkill != nil {
 		events <- atypes.Event{Type: atypes.EventText, Text: fmt.Sprintf("Skill: %s", matchedSkill.Name)}
-	} else {
-		events <- atypes.Event{Type: atypes.EventText, Text: "No matched"}
 	}
 
 	agent := registry.Fallback

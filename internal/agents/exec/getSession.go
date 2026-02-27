@@ -44,53 +44,68 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 	defer unlock()
 
 	var sessionID string
-	if data, err := os.ReadFile(indexJSONPath); err == nil {
+	data, readErr := os.ReadFile(indexJSONPath)
+	switch {
+	case readErr == nil:
 		var indexData IndexData
-		if err := json.Unmarshal(data, &indexData); err == nil {
-			sessionID = indexData.SessionID
-
-			var summary string
-			data, err := os.ReadFile(filepath.Join(configDir.Home, sessionID, "summary.json"))
-			if err == nil {
-				summary = strings.NewReplacer(
-					"{{.Summary}}", string(data),
-				).Replace(summaryPrompt)
-			}
-
-			data, err = os.ReadFile(filepath.Join(configDir.Home, sessionID, "history.json"))
-			if err == nil {
-				var oldHistory []atypes.Message
-				if err := json.Unmarshal(data, &oldHistory); err == nil {
-					input.Histories = oldHistory
-				}
-				input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
-
-				input.Messages = append(input.Messages, atypes.Message{Role: "system", Content: summary})
-				recentHistory := oldHistory
-				if len(recentHistory) > 4 {
-					recentHistory = recentHistory[len(recentHistory)-4:]
-				}
-				input.Messages = append(input.Messages, recentHistory...)
-				input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
-			}
+		if err := json.Unmarshal(data, &indexData); err != nil || indexData.SessionID == "" {
+			return nil, "", fmt.Errorf("config.json corrupted: %w", err)
 		}
-	} else {
-		sessionID, err = newSessionID()
-		if err != nil {
-			return nil, "", fmt.Errorf("newSessionID: %w", err)
+		sessionID = indexData.SessionID
+
+		var summary string
+		if summaryData, err := os.ReadFile(filepath.Join(configDir.Home, sessionID, "summary.json")); err == nil {
+			summary = strings.NewReplacer(
+				"{{.Summary}}", string(summaryData),
+			).Replace(summaryPrompt)
 		}
-		indexData := IndexData{SessionID: sessionID}
+
+		if histData, err := os.ReadFile(filepath.Join(configDir.Home, sessionID, "history.json")); err == nil {
+			var oldHistory []atypes.Message
+			if err := json.Unmarshal(histData, &oldHistory); err == nil {
+				input.Histories = oldHistory
+			}
+			input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
+
+			input.Messages = append(input.Messages, atypes.Message{Role: "system", Content: summary})
+			recentHistory := oldHistory
+			if len(recentHistory) > 4 {
+				recentHistory = recentHistory[len(recentHistory)-4:]
+			}
+			input.Messages = append(input.Messages, recentHistory...)
+			input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
+		}
+
+	case os.IsNotExist(readErr):
+		var genErr error
+		sessionID, genErr = newSessionID()
+		if genErr != nil {
+			return nil, "", fmt.Errorf("newSessionID: %w", genErr)
+		}
 
 		input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 		input.Messages = append(input.Messages, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 
-		indexDataBytes, err := json.Marshal(indexData)
+		indexDataBytes, err := json.Marshal(IndexData{SessionID: sessionID})
 		if err != nil {
 			return nil, "", fmt.Errorf("json.Marshal: %w", err)
 		}
-		if err := os.WriteFile(indexJSONPath, indexDataBytes, 0644); err != nil {
-			return nil, "", fmt.Errorf("os.WriteFile: %w", err)
+		// O_EXCL: flock 외 추가 방어층 — 파일이 생성된 경우 원자적 실패
+		f, err := os.OpenFile(indexJSONPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, "", fmt.Errorf("os.OpenFile config.json: %w", err)
 		}
+		_, writeErr := f.Write(indexDataBytes)
+		closeErr := f.Close()
+		if writeErr != nil {
+			return nil, "", fmt.Errorf("write config.json: %w", writeErr)
+		}
+		if closeErr != nil {
+			return nil, "", fmt.Errorf("close config.json: %w", closeErr)
+		}
+
+	default:
+		return nil, "", fmt.Errorf("os.ReadFile config.json: %w", readErr)
 	}
 
 	err = os.MkdirAll(filepath.Join(configDir.Home, sessionID), 0755)
