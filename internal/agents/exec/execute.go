@@ -40,7 +40,7 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 
 	limit := MaxToolIterations
 	if skill != nil {
-		limit = int(^uint(0) >> 1) // math.MaxInt without import
+		limit = MaxSkillIterations
 	}
 
 	alreadyCall := make(map[string]string)

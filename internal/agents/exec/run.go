@@ -20,7 +20,8 @@ var skillExtensionPrompt string
 var summaryPrompt string
 
 var (
-	MaxToolIterations = 8
+	MaxToolIterations  = 8
+	MaxSkillIterations = 128
 )
 
 func Run(ctx context.Context, bot atypes.Agent, registry atypes.AgentRegistry, scanner *skill.Scanner, userInput string, events chan<- atypes.Event, allowAll bool) error {
