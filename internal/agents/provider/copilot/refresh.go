@@ -9,7 +9,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
-var (
+const (
 	copilotTokenAPI = "https://api.github.com/copilot_internal/v2/token"
 )
 

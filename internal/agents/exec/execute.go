@@ -100,8 +100,9 @@ func Execute(ctx context.Context, agent atypes.Agent, workDir string, skill *ski
 		events <- atypes.Event{Type: atypes.EventDone}
 
 		if len(sessionData.Tools) > 0 {
-			date := time.Now().Format("2006-01-02")
-			dateWithSec := time.Now().Format("2006-01-02-15-04-05")
+			now := time.Now()
+			date := now.Format("2006-01-02")
+			dateWithSec := now.Format("2006-01-02-15-04-05")
 			toolActionsDir := filepath.Join(configDir.Work, sessionID, date)
 			if err := os.MkdirAll(toolActionsDir, 0755); err == nil {
 				filename := dateWithSec + ".json"

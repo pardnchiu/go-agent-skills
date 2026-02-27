@@ -11,7 +11,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
-var (
+const (
 	chatAPI = "https://api.openai.com/v1/chat/completions"
 )
 

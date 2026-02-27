@@ -14,7 +14,7 @@ type Agent struct {
 	workDir    string
 }
 
-var (
+const (
 	// openai/gpt-oss-120b
 	// z-ai/glm4.7
 	// qwen/qwen3-235b-a22b

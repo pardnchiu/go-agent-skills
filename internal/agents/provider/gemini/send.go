@@ -12,7 +12,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
-var (
+const (
 	baseAPI = "https://generativelanguage.googleapis.com/v1beta/models/"
 )
 

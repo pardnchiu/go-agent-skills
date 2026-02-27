@@ -15,7 +15,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
-var (
+const (
 	deviceCodeAPI       = "https://github.com/login/device/code"
 	oauthAccessTokenAPI = "https://github.com/login/oauth/access_token"
 	clientID            = "Iv1.b507a08c87ecfe98" // TODO: will replace with personal client id

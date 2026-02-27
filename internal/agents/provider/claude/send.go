@@ -12,7 +12,7 @@ import (
 	"github.com/pardnchiu/go-agent-skills/internal/utils"
 )
 
-var (
+const (
 	messagesAPI = "https://api.anthropic.com/v1/messages"
 	maxTokens   = 16384
 )

@@ -17,7 +17,7 @@ var (
 // disallowed = regexp.MustCompile(`[;&|` + "`" + `$(){}!<>\\]`)
 )
 
-func runCommand(e *types.Executor, command string) (string, error) {
+func runCommand(ctx context.Context, e *types.Executor, command string) (string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
 		return "", fmt.Errorf("failed to run command: command is empty")
@@ -50,12 +50,12 @@ func runCommand(e *types.Executor, command string) (string, error) {
 		}
 
 		if binary == "rm" {
-			return moveToTrash(e, args[1:])
+			return moveToTrash(ctx, e, args[1:])
 		}
 	}
 
 	// TODO: need to change to dynamic timeout based on command complexity
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
 	var cmd *exec.Cmd
@@ -74,12 +74,17 @@ func runCommand(e *types.Executor, command string) (string, error) {
 	return string(output), nil
 }
 
-func moveToTrash(e *types.Executor, args []string) (string, error) {
+func moveToTrash(ctx context.Context, e *types.Executor, args []string) (string, error) {
 	trashPath := filepath.Join(e.WorkPath, ".Trash")
-	os.MkdirAll(trashPath, 0755)
+	if err := os.MkdirAll(trashPath, 0755); err != nil {
+		return "", fmt.Errorf("os.MkdirAll .Trash: %w", err)
+	}
 
 	var moved []string
 	for _, arg := range args {
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("moveToTrash cancelled: %w", err)
+		}
 		if strings.HasPrefix(arg, "-") {
 			continue
 		}

@@ -14,7 +14,7 @@ type Agent struct {
 	workDir    string
 }
 
-var (
+const (
 	// gemini-2.5-pro   1m/64k
 	// gemini-2.5-flash 1m/64k
 	defaultModel = "gemini-2.5-pro"

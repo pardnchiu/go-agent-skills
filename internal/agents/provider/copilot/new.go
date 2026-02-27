@@ -30,7 +30,7 @@ type Agent struct {
 	tokenDir   string
 }
 
-var (
+const (
 	// gpt-4.1      1m/32k
 	// gpt-4.1-mini 1m/32k
 	// gpt-5-mini   400k/128k

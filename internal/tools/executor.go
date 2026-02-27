@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/pardnchiu/go-agent-skills/internal/tools/apiAdapter"
@@ -76,7 +75,8 @@ func normalizeArgs(args json.RawMessage) json.RawMessage {
 	}
 	for k, v := range m {
 		if s, ok := v.(string); ok {
-			if unquoted, err := strconv.Unquote(`"` + s + `"`); err == nil {
+			var unquoted string
+			if err := json.Unmarshal([]byte(`"`+s+`"`), &unquoted); err == nil {
 				m[k] = unquoted
 			}
 		}
@@ -112,7 +112,7 @@ func Execute(ctx context.Context, e *types.Executor, name string, args json.RawM
 		if err := json.Unmarshal(args, &params); err != nil {
 			return "", fmt.Errorf("json.Unmarshal: %w", err)
 		}
-		return runCommand(e, params.Command)
+		return runCommand(ctx, e, params.Command)
 
 	case "fetch_page":
 		var params struct {

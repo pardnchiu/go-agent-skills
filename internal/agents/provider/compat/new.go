@@ -15,7 +15,7 @@ type Agent struct {
 	workDir    string
 }
 
-var (
+const (
 	defaultModel = "qwen3:8b"
 	prefix       = "compat@"
 )

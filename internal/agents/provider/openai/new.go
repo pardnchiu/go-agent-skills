@@ -14,7 +14,7 @@ type Agent struct {
 	workDir    string
 }
 
-var (
+const (
 	defaultModel = "gpt-5-mini"
 	prefix       = "openai@"
 )

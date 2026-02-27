@@ -14,7 +14,7 @@ type Agent struct {
 	workDir    string
 }
 
-var (
+const (
 	// claude-sonnet-4-5 200K/64000
 	// claude-opus-4-6   200K/128K
 	// claude-opus-4-5   200K/128K

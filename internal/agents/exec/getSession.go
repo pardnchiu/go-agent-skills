@@ -31,8 +31,7 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 
 	configDir, err := utils.GetConfigDir("sessions")
 	if err != nil {
-		fmt.Printf("utils.ConfigDir: %v\n", err)
-		return nil, "", err
+		return nil, "", fmt.Errorf("utils.ConfigDir: %v\n", err)
 	}
 
 	indexJSONPath := filepath.Join(configDir.Home, "..", "config.json")
@@ -48,8 +47,11 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 	switch {
 	case readErr == nil:
 		var indexData IndexData
-		if err := json.Unmarshal(data, &indexData); err != nil || indexData.SessionID == "" {
+		if err := json.Unmarshal(data, &indexData); err != nil {
 			return nil, "", fmt.Errorf("config.json corrupted: %w", err)
+		}
+		if indexData.SessionID == "" {
+			return nil, "", fmt.Errorf("config.json corrupted: session_id is empty")
 		}
 		sessionID = indexData.SessionID
 
@@ -67,7 +69,9 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 			}
 			input.Histories = append(input.Histories, atypes.Message{Role: "user", Content: fmt.Sprintf("ts:%s\n%s", now, userInput)})
 
-			input.Messages = append(input.Messages, atypes.Message{Role: "system", Content: summary})
+			if summary != "" {
+				input.Messages = append(input.Messages, atypes.Message{Role: "system", Content: summary})
+			}
 			recentHistory := oldHistory
 			if len(recentHistory) > 4 {
 				recentHistory = recentHistory[len(recentHistory)-4:]
