@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	atypes "github.com/pardnchiu/go-agent-skills/internal/agents/types"
@@ -35,6 +36,13 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 	}
 
 	indexJSONPath := filepath.Join(configDir.Home, "..", "config.json")
+
+	unlock, err := lockConfig(filepath.Dir(indexJSONPath))
+	if err != nil {
+		return nil, "", fmt.Errorf("lockConfig: %w", err)
+	}
+	defer unlock()
+
 	var sessionID string
 	if data, err := os.ReadFile(indexJSONPath); err == nil {
 		var indexData IndexData
@@ -91,6 +99,22 @@ func getSession(prompt string, userInput string) (*atypes.AgentSession, string, 
 	}
 
 	return &input, sessionID, nil
+}
+
+func lockConfig(dir string) (func(), error) {
+	lockPath := filepath.Join(dir, "config.json.lock")
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("os.OpenFile: %w", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("syscall.Flock: %w", err)
+	}
+	return func() {
+		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		f.Close()
+	}, nil
 }
 
 func newSessionID() (string, error) {
