@@ -60,7 +60,10 @@ graph TB
 go-agent-skills/
 ├── cmd/
 │   └── cli/
-│       └── main.go                  # CLI 進入點，事件迴圈與互動確認
+│       ├── main.go                  # CLI 進入點
+│       ├── getAgentRegistry.go      # 多後端 Agent Registry 初始化
+│       ├── printTool.go             # ANSI 彩色輸出工具
+│       └── runEvents.go             # 事件迴圈與互動確認
 ├── internal/
 │   ├── agents/
 │   │   ├── exec/                    # 執行核心（路由、工具迴圈、Session 管理）
@@ -88,6 +91,7 @@ go-agent-skills/
 │   │   ├── calculator/              # big.Int 精確數學運算
 │   │   └── file/                    # 檔案讀寫、搜尋、歷史查詢
 │   └── utils/                       # HTTP 工具函式
+├── examples/apis/                   # 自訂 API 設定範例
 ├── go.mod
 └── README.md
 ```

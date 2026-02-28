@@ -60,7 +60,10 @@ graph TB
 go-agent-skills/
 ├── cmd/
 │   └── cli/
-│       └── main.go                  # CLI entry point, event loop and interactive confirm
+│       ├── main.go                  # CLI entry point
+│       ├── getAgentRegistry.go      # Multi-provider Agent Registry init
+│       ├── printTool.go             # ANSI color output helpers
+│       └── runEvents.go             # Event loop and interactive confirm
 ├── internal/
 │   ├── agents/
 │   │   ├── exec/                    # Execution core (routing, tool loop, session management)
@@ -88,6 +91,7 @@ go-agent-skills/
 │   │   ├── calculator/              # big.Int precision math
 │   │   └── file/                    # File read/write, search, history query
 │   └── utils/                       # HTTP utilities
+├── examples/apis/                   # Sample custom API configs
 ├── go.mod
 └── README.md
 ```
