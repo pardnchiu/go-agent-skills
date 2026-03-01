@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Go 1.20 or higher
+- Go 1.25.1 or higher
 - At least one AI agent credential (choose one or more):
   - GitHub Copilot subscription (interactive Device Code login)
   - `OPENAI_API_KEY` (OpenAI)
@@ -27,7 +27,7 @@ go install github.com/pardnchiu/agenvoy/cmd/cli@latest
 ```bash
 git clone https://github.com/pardnchiu/agenvoy.git
 cd agenvoy
-go build -o agent-skills ./cmd/cli
+go build -o agenvoy ./cmd/cli
 ```
 
 ### As a Library
@@ -38,26 +38,42 @@ go get github.com/pardnchiu/agenvoy
 
 ## Configuration
 
-### Environment Variables
+### Add a Provider (Interactive)
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `OPENAI_API_KEY` | Conditional | OpenAI API key | — |
-| `ANTHROPIC_API_KEY` | Conditional | Anthropic Claude API key | — |
-| `GEMINI_API_KEY` | Conditional | Google Gemini API key | — |
-| `NVIDIA_API_KEY` | Conditional | NVIDIA NIM API key | — |
-| `COMPAT_URL` | No | OpenAI-compatible endpoint URL | `http://localhost:11434` |
-| `COMPAT_API_KEY` | No | Compatible endpoint API key | — |
-
-Copy `.env.example` and fill in the values:
+Run the `add` command to interactively register a provider. Credentials are stored in the OS keychain — no manual env var setup required.
 
 ```bash
-cp .env.example .env
+agenvoy add
 ```
+
+The prompt lists all supported providers:
+
+```
+? Select provider to add:
+  GitHub Copilot
+  OpenAI
+  Claude
+  Gemini
+  Nvidia
+  Compat
+```
+
+- **GitHub Copilot**: opens Device Code browser login, then prompts for model name
+- **API-key providers** (OpenAI / Claude / Gemini / NVIDIA): prompts for API key (masked input), stored in OS keychain
+- **Compat**: prompts for provider name, endpoint URL (default: `http://localhost:11434`), optional API key, and model name
+
+### Credential Lookup Order
+
+For each API key, the keychain package checks in order:
+1. OS keychain (macOS Keychain / Linux `secret-tool`)
+2. Environment variable with the same key name
+3. `~/.config/agenvoy/.secrets` (file fallback for other platforms)
+
+Environment variables can still be used as an alternative to `agenvoy add`.
 
 ### Agent Config File
 
-Create an Agent list at `~/.config/agent-skills/config.json` or `./.config/agent-skills/config.json`:
+Create an agent list at `~/.config/agenvoy/config.json` or `./.config/agenvoy/config.json`:
 
 ```json
 {
@@ -72,7 +88,7 @@ Create an Agent list at `~/.config/agent-skills/config.json` or `./.config/agent
       "description": "General queries, fast responses"
     },
     {
-      "name": "compat@qwen3:8b",
+      "name": "compat[ollama]@qwen3:8b",
       "description": "Local tasks, offline use"
     }
   ]
@@ -110,7 +126,7 @@ Description: One sentence describing what this Skill does (used by the Selector 
 
 ### Custom API Tools
 
-Place JSON config files in `~/.config/agent-skills/apis/` or `./.config/agent-skills/apis/`:
+Place JSON config files in `~/.config/agenvoy/apis/` or `./.config/agenvoy/apis/`:
 
 ```json
 {
@@ -143,10 +159,18 @@ The tool is automatically registered as `api_my_api` and the AI can invoke it di
 
 ## Usage
 
+### Add a Provider
+
+```bash
+agenvoy add
+```
+
+Interactive setup for any supported provider. Credentials are saved to the OS keychain.
+
 ### List All Available Skills
 
 ```bash
-agent-skills list
+agenvoy list
 ```
 
 Example output:
@@ -166,7 +190,7 @@ Found 3 skill(s):
 ### Run a Task (Interactive Mode)
 
 ```bash
-agent-skills run "Check TSMC stock price today"
+agenvoy run "Check TSMC stock price today"
 ```
 
 A confirmation prompt appears before each tool call:
@@ -181,18 +205,10 @@ A confirmation prompt appears before each tool call:
 ### Run a Task (Automatic Mode)
 
 ```bash
-agent-skills run "Generate README" --allow
+agenvoy run "Generate README" --allow
 ```
 
 `--allow` skips all tool confirmation prompts and runs fully automatically.
-
-### Specify a Skill Explicitly
-
-The framework automatically matches the best Skill using LLM inference. You can also mention the skill name directly in your input:
-
-```bash
-agent-skills run "commit-generate: generate a commit message for current git changes" --allow
-```
 
 ### Use as a Library
 
@@ -260,25 +276,15 @@ func main() {
 }
 ```
 
-### Adjust Iteration Limits
-
-```go
-import "github.com/pardnchiu/agenvoy/internal/agents/exec"
-
-func init() {
-    exec.MaxToolIterations  = 16  // General conversation mode (default: 8)
-    exec.MaxSkillIterations = 128  // Skill execution mode (default: 128)
-}
-```
-
 ## CLI Reference
 
 ### Commands
 
 | Command | Syntax | Description |
 |---------|--------|-------------|
-| `list` | `agent-skills list` | List all discovered Skills |
-| `run` | `agent-skills run <input> [--allow]` | Execute a task |
+| `add` | `agenvoy add` | Interactively register a provider and store credentials in the OS keychain |
+| `list` | `agenvoy list` | List all discovered Skills |
+| `run` | `agenvoy run <input> [--allow]` | Execute a task |
 
 ### Flags
 
@@ -295,9 +301,10 @@ func init() {
 | `claude` | API Key | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
 | `gemini` | API Key | `gemini-2.5-pro` | `GEMINI_API_KEY` |
 | `nvidia` | API Key | `openai/gpt-oss-120b` | `NVIDIA_API_KEY` |
-| `compat` | Optional API Key | `qwen3:8b` | `COMPAT_URL`, `COMPAT_API_KEY` |
+| `compat` | Optional API Key | any | `COMPAT_{NAME}_API_KEY` |
 
 Model format: `{provider}@{model-name}`, e.g. `claude@claude-opus-4-6`.
+Compat format: `compat[{name}]@{model}`, e.g. `compat[ollama]@qwen3:8b`.
 
 ### Built-in Tools
 
@@ -365,13 +372,16 @@ func Run(
 
 ```go
 const (
-    EventText        // Agent text output (includes Skill/Agent routing status)
-    EventToolCall    // A tool is about to be called
-    EventToolConfirm // Awaiting user confirmation (triggered when allowAll=false)
-    EventToolSkipped // User skipped the tool
-    EventToolResult  // Tool execution result
-    EventError       // Error event
-    EventDone        // Current request completed
+    EventSkillSelect  // Skill matching started
+    EventSkillResult  // Skill matched (or "none")
+    EventAgentSelect  // Agent routing started
+    EventAgentResult  // Agent selected (or "fallback")
+    EventText         // Agent text output
+    EventToolCall     // A tool is about to be called
+    EventToolConfirm  // Awaiting user confirmation (allowAll=false)
+    EventToolSkipped  // User skipped the tool
+    EventToolResult   // Tool execution result
+    EventDone         // Current request completed
 )
 ```
 
@@ -382,6 +392,13 @@ func NewScanner() *Scanner
 ```
 
 Creates and runs a concurrent skill scan across 9 standard paths. When duplicate skill names are found, the first one discovered takes precedence.
+
+### keychain.Get / keychain.Set
+
+```go
+func Get(key string) string   // Read from OS keychain, fallback to env var
+func Set(key, value string) error  // Write to OS keychain
+```
 
 ### APIDocumentData (Custom API Config Schema)
 

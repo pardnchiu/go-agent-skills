@@ -1,6 +1,5 @@
 > [!NOTE]
-> 此 README 由 [SKILL](https://github.com/pardnchiu/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。<br>
-> 測試由 [SKILL](https://github.com/pardnchiu/skill-coverage-generate) 生成。
+> 此 README 由 [SKILL](https://github.com/pardnchiu/skill-readme-generate) 生成，英文版請參閱 [這裡](../README.md)。
 
 ![cover](./cover.png)
 
@@ -8,9 +7,9 @@
 
 [![pkg](https://pkg.go.dev/badge/github.com/pardnchiu/agenvoy.svg)](https://pkg.go.dev/github.com/pardnchiu/agenvoy)
 [![card](https://goreportcard.com/badge/github.com/pardnchiu/agenvoy)](https://goreportcard.com/report/github.com/pardnchiu/agenvoy)
+[![codecov](https://img.shields.io/codecov/c/github/pardnchiu/agenvoy/master)](https://app.codecov.io/github/pardnchiu/agenvoy/tree/master)
 [![license](https://img.shields.io/github/license/pardnchiu/agenvoy)](LICENSE)
 [![version](https://img.shields.io/github/v/tag/pardnchiu/agenvoy?label=release)](https://github.com/pardnchiu/agenvoy/releases)
-[![codecov](https://codecov.io/gh/pardnchiu/agenvoy/branch/master/graph/badge.svg)](https://codecov.io/gh/pardnchiu/agenvoy)
 
 > 以 Go 語言打造的 Agentic AI 平台，具備意圖導向技能路由、多 Provider LLM 派發、跨回合記憶與零程式碼 REST API 工具掛載。
 
@@ -27,17 +26,17 @@
 
 > `go install github.com/pardnchiu/agenvoy/cmd/cli@latest` · [完整文件](./doc.zh.md)
 
-### 跨輪次概要記憶
-
-每輪對話結束後，框架以 LLM 將完整歷史壓縮為結構化 `summary.json`，下一輪啟動時自動注入摘要與最近幾筆對話，讓 Agent 在不撐爆 Context Window 的前提下保有跨輪次記憶。Agent 也可主動呼叫 `search_history` 工具，以關鍵字加時間範圍篩選查詢過往對話，而非單純依賴摘要的被動回憶。
-
-### 零程式碼 API 工具掛載
-
-框架內建 15 支工具涵蓋檔案讀寫、網路搜尋、JS 渲染瀏覽器、Yahoo Finance、Google News RSS、天氣、精確計算與 Shell 指令。在此之上，`apiAdapter` 層讓任何 REST API 只需放置一份 JSON 設定檔即可掛載為新工具，無需修改框架程式碼。認證方式（Bearer Token、API Key、Basic Auth）、請求格式、超時與回應解析皆在設定檔中宣告，Agent 可直接呼叫。
-
 ### 雙層路由 Agentic 執行引擎
 
-執行前，輕量 Selector Bot 同時完成兩層 LLM 路由：從 9 個標準路徑並發掃描到的 Skill 清單中選出最匹配的指令集，再從 Agent Registry 選出最適合的後端。執行迴圈最多迭代 8 次（一般模式）或 128 次（Skill 模式），每次工具呼叫結果皆快取避免重複請求，超過上限時自動觸發摘要作為最終回應，而非直接回傳錯誤。
+每次執行前，輕量級 Selector Bot 執行兩項並發 LLM 路由決策：從 9 個標準路徑並發掃描的 Markdown 檔案中匹配最佳 Skill，並從 Agent Registry 選出最合適的後端。執行迴圈最多運行 16 次（一般模式）或 128 次（Skill 模式），對已執行的 Tool Call 進行快取去重，並在達到迭代上限時自動觸發摘要流程，確保始終返回連貫的最終回應。
+
+### 零程式碼 REST API 工具掛載
+
+框架內建 15 個工具，涵蓋檔案 I/O、網路搜尋、JS 渲染瀏覽器擷取、金融資料、天氣、精確數學運算與 Shell 指令。超出內建範圍的需求，只需在標準路徑投入單一 JSON 設定檔即可將任意 REST API 掛載為新工具，無需修改框架程式碼。認證方式（Bearer Token、API Key、Basic Auth）、請求格式、逾時與回應欄位映射均在設定檔中宣告。
+
+### OS Keychain 憑證儲存與安全指令執行
+
+API 金鑰儲存於 OS 原生 Keychain（macOS 使用 `security`，Linux 使用 `secret-tool`）而非環境變數，並為其他平台提供檔案型退路。`rm` 指令會被攔截並重導向至 `.Trash` 目錄而非永久刪除，防止 AI 驅動的檔案操作發生意外資料遺失。
 
 ## 架構
 
@@ -48,11 +47,11 @@ graph TB
     Run --> SelAgent["selectAgent\n(Selector Bot)"]
     SelSkill --> Skills["Skill Scanner\n9 個標準路徑"]
     SelAgent --> Registry["AgentRegistry\nCopilot / OpenAI / Claude\nGemini / NVIDIA / Compat"]
-    SelSkill -- "matched skill" --> Execute["exec.Execute"]
-    SelAgent -- "chosen agent" --> Execute
+    SelSkill -- "匹配的 Skill" --> Execute["exec.Execute"]
+    SelAgent -- "選定的 Agent" --> Execute
     Execute --> Agent["Agent.Send"]
     Execute --> ToolCall["toolCall\n(快取 + 使用者確認)"]
-    ToolCall --> Tools["Tools Executor\n15 內建 + 自訂 API"]
+    ToolCall --> Tools["工具執行器\n15 內建 + 自訂 API"]
     Execute --> Session["Session\nhistory.json / summary.json"]
 ```
 
@@ -63,36 +62,25 @@ agenvoy/
 ├── cmd/
 │   └── cli/
 │       ├── main.go                  # CLI 進入點
-│       ├── getAgentRegistry.go      # 多後端 Agent Registry 初始化
-│       ├── printTool.go             # ANSI 彩色輸出工具
+│       ├── addProvider.go           # 互動式 Provider 設定
+│       ├── getAgentRegistry.go      # 多 Provider Agent Registry 初始化
+│       ├── printTool.go             # ANSI 色彩輸出工具
 │       └── runEvents.go             # 事件迴圈與互動確認
 ├── internal/
 │   ├── agents/
 │   │   ├── exec/                    # 執行核心（路由、工具迴圈、Session 管理）
-│   │   │   ├── execute.go           # 主執行迴圈（最多 8/128 次工具迭代）
-│   │   │   ├── run.go               # 頂層入口，串接 Skill/Agent 選擇
-│   │   │   ├── selectAgent.go       # LLM 驅動 Agent 路由
-│   │   │   ├── selectSkill.go       # LLM 驅動 Skill 匹配
-│   │   │   ├── toolCall.go          # 工具呼叫、快取、使用者確認
-│   │   │   ├── getSession.go        # Session 初始化與 flock 並發保護
-│   │   │   └── prompt/              # 嵌入式系統提示詞（Go embed）
-│   │   ├── provider/                # 6 大 AI 後端實作
-│   │   │   ├── copilot/             # GitHub Copilot（Device Code 登入）
-│   │   │   ├── openai/              # OpenAI API
-│   │   │   ├── claude/              # Anthropic Claude API
-│   │   │   ├── gemini/              # Google Gemini API
-│   │   │   ├── nvidia/              # NVIDIA NIM API
-│   │   │   └── compat/              # 任意 OpenAI 相容端點（Ollama 等）
-│   │   └── types/                   # 共用型別（Agent、Message、Output 等）
-│   ├── skill/                       # Skill 並發掃描與解析
-│   ├── tools/                       # 工具執行器與 15 支內建工具
-│   │   ├── executor.go              # 工具分派與 Unicode 參數正規化
+│   │   ├── provider/                # 6 個 AI 後端（copilot/openai/claude/gemini/nvidia/compat）
+│   │   └── types/                   # 共用介面（Agent、Message、Output）
+│   ├── discord/                     # 選用 Discord Bot 整合
+│   ├── keychain/                    # OS Keychain 憑證儲存
+│   ├── skill/                       # 並發 Skill 掃描與解析
+│   ├── tools/                       # 工具執行器與 15 個內建工具
 │   │   ├── apiAdapter/              # JSON 設定驅動的自訂 API 工具
-│   │   ├── apis/                    # 網路 API（Finance、RSS、天氣）
+│   │   ├── apis/                    # 網路 API（Finance、RSS、Weather）
 │   │   ├── browser/                 # Chrome JS 渲染頁面擷取
-│   │   ├── calculator/              # big.Int 精確數學運算
+│   │   ├── calculator/              # 精確數學運算
 │   │   └── file/                    # 檔案讀寫、搜尋、歷史查詢
-│   └── utils/                       # HTTP 工具函式
+│   └── utils/                       # 共用工具函式
 ├── examples/apis/                   # 自訂 API 設定範例
 ├── go.mod
 └── README.md

@@ -4,7 +4,7 @@
 
 ## 前置需求
 
-- Go 1.20 或更高版本
+- Go 1.25.1 或更高版本
 - 至少一組 AI Agent 憑證（以下擇一）：
   - GitHub Copilot 訂閱（Device Code 互動登入）
   - `OPENAI_API_KEY`（OpenAI）
@@ -27,7 +27,7 @@ go install github.com/pardnchiu/agenvoy/cmd/cli@latest
 ```bash
 git clone https://github.com/pardnchiu/agenvoy.git
 cd agenvoy
-go build -o agent-skills ./cmd/cli
+go build -o agenvoy ./cmd/cli
 ```
 
 ### 作為函式庫引用
@@ -38,26 +38,42 @@ go get github.com/pardnchiu/agenvoy
 
 ## 設定
 
-### 環境變數
+### 新增 Provider（互動式）
 
-| 變數 | 必要 | 說明 | 預設值 |
-|------|------|------|--------|
-| `OPENAI_API_KEY` | 條件性 | OpenAI API 金鑰 | — |
-| `ANTHROPIC_API_KEY` | 條件性 | Anthropic Claude API 金鑰 | — |
-| `GEMINI_API_KEY` | 條件性 | Google Gemini API 金鑰 | — |
-| `NVIDIA_API_KEY` | 條件性 | NVIDIA NIM API 金鑰 | — |
-| `COMPAT_URL` | 否 | OpenAI 相容端點 URL | `http://localhost:11434` |
-| `COMPAT_API_KEY` | 否 | 相容端點 API 金鑰 | — |
-
-複製 `.env.example` 並填入對應值：
+執行 `add` 指令以互動方式註冊 Provider。憑證儲存於 OS Keychain，無需手動設定環境變數。
 
 ```bash
-cp .env.example .env
+agenvoy add
 ```
+
+提示選單列出所有支援的 Provider：
+
+```
+? Select provider to add:
+  GitHub Copilot
+  OpenAI
+  Claude
+  Gemini
+  Nvidia
+  Compat
+```
+
+- **GitHub Copilot**：開啟 Device Code 瀏覽器登入，完成後提示輸入模型名稱
+- **API Key Provider**（OpenAI / Claude / Gemini / NVIDIA）：提示輸入 API Key（遮罩輸入），儲存至 OS Keychain
+- **Compat**：提示輸入 Provider 名稱、端點 URL（預設 `http://localhost:11434`）、選填 API Key 與模型名稱
+
+### 憑證查找順序
+
+每個 API Key 的查找優先順序：
+1. OS Keychain（macOS Keychain / Linux `secret-tool`）
+2. 同名環境變數
+3. `~/.config/agenvoy/.secrets`（其他平台的檔案型退路）
+
+仍可使用環境變數替代 `agenvoy add`。
 
 ### Agent 設定檔
 
-在 `~/.config/agent-skills/config.json` 或 `./.config/agent-skills/config.json` 建立 Agent 清單：
+在 `~/.config/agenvoy/config.json` 或 `./.config/agenvoy/config.json` 建立 Agent 清單：
 
 ```json
 {
@@ -72,7 +88,7 @@ cp .env.example .env
       "description": "一般查詢、快速回答"
     },
     {
-      "name": "compat@qwen3:8b",
+      "name": "compat[ollama]@qwen3:8b",
       "description": "本地任務、離線使用"
     }
   ]
@@ -110,7 +126,7 @@ Description: 一句話說明此 Skill 的用途（供 Selector Bot 判斷）
 
 ### 自訂 API 工具
 
-在 `~/.config/agent-skills/apis/` 或 `./.config/agent-skills/apis/` 放置 JSON 設定檔：
+在 `~/.config/agenvoy/apis/` 或 `./.config/agenvoy/apis/` 放置 JSON 設定檔：
 
 ```json
 {
@@ -143,10 +159,18 @@ Description: 一句話說明此 Skill 的用途（供 Selector Bot 判斷）
 
 ## 使用方式
 
+### 新增 Provider
+
+```bash
+agenvoy add
+```
+
+互動式設定任意支援的 Provider，憑證儲存至 OS Keychain。
+
 ### 列出所有可用 Skill
 
 ```bash
-agent-skills list
+agenvoy list
 ```
 
 輸出範例：
@@ -166,7 +190,7 @@ Found 3 skill(s):
 ### 執行任務（互動模式）
 
 ```bash
-agent-skills run "查詢台積電今日股價"
+agenvoy run "查詢台積電今日股價"
 ```
 
 每次工具呼叫前會出現確認提示：
@@ -181,18 +205,10 @@ agent-skills run "查詢台積電今日股價"
 ### 執行任務（自動模式）
 
 ```bash
-agent-skills run "生成 README" --allow
+agenvoy run "生成 README" --allow
 ```
 
 `--allow` 跳過所有工具確認提示，完全自動執行。
-
-### 執行指定 Skill
-
-框架會自動以 LLM 匹配最適合的 Skill，也可在輸入中明確提及 Skill 名稱：
-
-```bash
-agent-skills run "commit-generate: 為目前的 git 變更生成 commit message" --allow
-```
 
 ### 作為函式庫使用
 
@@ -260,25 +276,15 @@ func main() {
 }
 ```
 
-### 調整迭代上限
-
-```go
-import "github.com/pardnchiu/agenvoy/internal/agents/exec"
-
-func init() {
-    exec.MaxToolIterations  = 16  // 一般對話模式（預設 8）
-    exec.MaxSkillIterations = 128  // Skill 執行模式（預設 128）
-}
-```
-
 ## 命令列參考
 
 ### 指令
 
 | 指令 | 語法 | 說明 |
 |------|------|------|
-| `list` | `agent-skills list` | 列出所有已掃描到的 Skill |
-| `run` | `agent-skills run <input> [--allow]` | 執行任務 |
+| `add` | `agenvoy add` | 互動式設定 Provider，憑證儲存至 OS Keychain |
+| `list` | `agenvoy list` | 列出所有已掃描到的 Skill |
+| `run` | `agenvoy run <input> [--allow]` | 執行任務 |
 
 ### 旗標
 
@@ -295,9 +301,10 @@ func init() {
 | `claude` | API Key | `claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
 | `gemini` | API Key | `gemini-2.5-pro` | `GEMINI_API_KEY` |
 | `nvidia` | API Key | `openai/gpt-oss-120b` | `NVIDIA_API_KEY` |
-| `compat` | 選填 API Key | `qwen3:8b` | `COMPAT_URL`, `COMPAT_API_KEY` |
+| `compat` | 選填 API Key | 任意 | `COMPAT_{NAME}_API_KEY` |
 
 模型格式：`{provider}@{model-name}`，例如 `claude@claude-opus-4-6`。
+Compat 格式：`compat[{name}]@{model}`，例如 `compat[ollama]@qwen3:8b`。
 
 ### 內建工具
 
@@ -365,13 +372,16 @@ func Run(
 
 ```go
 const (
-    EventText        // Agent 輸出文字（含 Skill/Agent 路由狀態）
-    EventToolCall    // 工具即將被呼叫
-    EventToolConfirm // 等待使用者確認（allowAll=false 時觸發）
-    EventToolSkipped // 使用者跳過工具
-    EventToolResult  // 工具執行結果
-    EventError       // 錯誤事件
-    EventDone        // 本次請求完成
+    EventSkillSelect  // Skill 匹配開始
+    EventSkillResult  // Skill 匹配完成（或 "none"）
+    EventAgentSelect  // Agent 路由開始
+    EventAgentResult  // Agent 選定（或 "fallback"）
+    EventText         // Agent 輸出文字
+    EventToolCall     // 工具即將被呼叫
+    EventToolConfirm  // 等待使用者確認（allowAll=false 時觸發）
+    EventToolSkipped  // 使用者跳過工具
+    EventToolResult   // 工具執行結果
+    EventDone         // 本次請求完成
 )
 ```
 
@@ -382,6 +392,13 @@ func NewScanner() *Scanner
 ```
 
 建立並執行並發 Skill 掃描，掃描 9 個標準路徑。找到重複名稱的 Skill 時以先掃描到的為準。
+
+### keychain.Get / keychain.Set
+
+```go
+func Get(key string) string        // 從 OS Keychain 讀取，退路為環境變數
+func Set(key, value string) error  // 寫入 OS Keychain
+```
 
 ### APIDocumentData（自訂 API 設定結構）
 
