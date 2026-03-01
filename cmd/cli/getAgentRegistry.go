@@ -35,7 +35,11 @@ func getAgentRegistry() agentTypes.AgentRegistry {
 		Entries:  make([]agentTypes.AgentEntry, 0, len(agentEntries)),
 	}
 	for _, e := range agentEntries {
-		provider := strings.SplitN(e.Name, "@", 2)[0]
+		providerFull := strings.SplitN(e.Name, "@", 2)[0]
+		provider := providerFull
+		if idx := strings.Index(providerFull, "["); idx != -1 {
+			provider = providerFull[:idx]
+		}
 		fn, ok := newFn[provider]
 		if !ok {
 			continue

@@ -16,23 +16,40 @@ type Agent struct {
 }
 
 const (
-	defaultModel = "qwen3:8b"
-	prefix       = "compat@"
+	defaultModel   = "qwen3:8b"
+	defaultBaseURL = "http://localhost:11434"
 )
 
 func New(model ...string) (*Agent, error) {
 	usedModel := defaultModel
-	if len(model) > 0 && strings.HasPrefix(model[0], prefix) {
-		usedModel = strings.TrimPrefix(model[0], prefix)
+	instanceName := ""
+
+	if len(model) > 0 && model[0] != "" {
+		raw := model[0]
+		if start := strings.Index(raw, "["); start != -1 {
+			if end := strings.Index(raw, "]"); end > start {
+				instanceName = strings.ToUpper(raw[start+1 : end])
+			}
+		}
+		if at := strings.Index(raw, "@"); at != -1 {
+			usedModel = raw[at+1:]
+		}
 	}
 
-	baseURL := os.Getenv("COMPAT_URL")
+	urlEnvKey := "COMPAT_URL"
+	apiKeyEnvKey := "COMPAT_API_KEY"
+	if instanceName != "" {
+		urlEnvKey = "COMPAT_" + instanceName + "_URL"
+		apiKeyEnvKey = "COMPAT_" + instanceName + "_API_KEY"
+	}
+
+	baseURL := os.Getenv(urlEnvKey)
 	if baseURL == "" {
-		baseURL = "http://localhost:11434"
+		baseURL = defaultBaseURL
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	apiKey := os.Getenv("COMPAT_API_KEY")
+	apiKey := os.Getenv(apiKeyEnvKey)
 
 	workDir, err := os.Getwd()
 	if err != nil {
