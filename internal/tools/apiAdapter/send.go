@@ -116,7 +116,7 @@ func Send(api, method string, headers map[string]string, body map[string]any, co
 
 	output, err := json.Marshal(result)
 	if err != nil {
-		return "", fmt.Errorf("json.MarshalIndent: %w", err)
+		return "", fmt.Errorf("json.Marshal: %w", err)
 	}
 
 	return string(output), nil

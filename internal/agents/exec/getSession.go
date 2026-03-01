@@ -60,7 +60,26 @@ func getSession(prompt string, userInput string) (*agentTypes.AgentSession, erro
 			return nil, fmt.Errorf("json.Unmarshal: %w", err)
 		}
 		if indexData.SessionID == "" {
-			return nil, fmt.Errorf("session_id is empty")
+			newID, err := newSessionID()
+			if err != nil {
+				return nil, fmt.Errorf("newSessionID: %w", err)
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal(data, &raw); err != nil {
+				raw = make(map[string]json.RawMessage)
+			}
+			raw["session_id"], err = json.Marshal(newID)
+			if err != nil {
+				return nil, fmt.Errorf("json.Marshal session_id: %w", err)
+			}
+			merged, err := json.Marshal(raw)
+			if err != nil {
+				return nil, fmt.Errorf("json.Marshal: %w", err)
+			}
+			if err := os.WriteFile(indexJsonPath, merged, 0644); err != nil {
+				return nil, fmt.Errorf("os.WriteFile: %w", err)
+			}
+			indexData.SessionID = newID
 		}
 		sessionID = strings.TrimSpace(indexData.SessionID)
 

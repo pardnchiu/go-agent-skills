@@ -9,25 +9,23 @@ import (
 	"sort"
 
 	"github.com/pardnchiu/agenvoy/internal/agents/exec"
-	"github.com/pardnchiu/agenvoy/internal/agents/provider/nvidia"
+	"github.com/pardnchiu/agenvoy/internal/agents/provider/copilot"
 	agentTypes "github.com/pardnchiu/agenvoy/internal/agents/types"
 	"github.com/pardnchiu/agenvoy/internal/skill"
-
-	"github.com/joho/godotenv"
 )
-
-func init() {
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("No .env file found, relying on environment variables")
-	}
-}
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage:")
+		fmt.Println("  go run cmd/cli/main.go add")
 		fmt.Println("  go run cmd/cli/main.go list")
 		fmt.Println("  go run cmd/cli/main.go run <skill_name> <input> [--allow]")
 		os.Exit(1)
+	}
+
+	if os.Args[1] == "add" {
+		runAdd()
+		return
 	}
 
 	if os.Args[1] == "list" {
@@ -73,7 +71,7 @@ func main() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		selectorBot, err := nvidia.New("compat@qwen:8b")
+		selectorBot, err := copilot.New()
 		if err != nil {
 			slog.Error("failed to initialize", slog.String("error", err.Error()))
 			os.Exit(1)

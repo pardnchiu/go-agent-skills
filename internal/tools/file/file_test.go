@@ -1,6 +1,7 @@
 package file
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -696,4 +697,252 @@ func TestRoutes(t *testing.T) {
 			t.Fatal("expected error for invalid json")
 		}
 	})
+}
+
+// ---------- walkFiles: excluded non-dir file ----------
+
+func TestWalkFiles_ExcludedFile(t *testing.T) {
+	e := &toolTypes.Executor{
+		WorkPath: t.TempDir(),
+		Exclude:  []toolTypes.Exclude{{File: "secret.txt", Negate: false}},
+	}
+	writeTemp(t, e, "public.txt", "public")
+	writeTemp(t, e, "secret.txt", "secret")
+
+	got, err := list(e, "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(got, "secret.txt") {
+		t.Error("excluded file should not appear in walkFiles output")
+	}
+	if !strings.Contains(got, "public.txt") {
+		t.Error("public.txt should appear in walkFiles output")
+	}
+}
+
+// ---------- search: invalid filePattern ----------
+
+func TestSearch_InvalidFilePattern(t *testing.T) {
+	e := newExec(t)
+	writeTemp(t, e, "main.go", "func main() {}")
+
+	// filepath.Match returns error for patterns like "[invalid"
+	// search should warn and treat it as no-match (skips the file)
+	got, err := search(e, "func", "[invalid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// file is skipped due to match error → no results
+	if !strings.Contains(got, "No fils found") {
+		t.Errorf("expected no-match message for invalid filePattern, got: %s", got)
+	}
+}
+
+// ---------- searchHistory ----------
+
+func setupHistoryFile(t *testing.T, sessionID string, entries []historyEntry) string {
+	t.Helper()
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	sessDir := filepath.Join(tmpHome, ".config", "agenvoy", "sessions", sessionID)
+	if err := os.MkdirAll(sessDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sessDir, "history.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	return tmpHome
+}
+
+func TestSearchHistory_FileNotFound(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	got, err := searchHistory("nonexistent-session", "keyword", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "No history found") {
+		t.Errorf("expected 'No history found', got: %s", got)
+	}
+}
+
+func TestSearchHistory_BadJSON(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	sessDir := filepath.Join(tmpHome, ".config", "agenvoy", "sessions", "sess-bad")
+	os.MkdirAll(sessDir, 0755)
+	os.WriteFile(filepath.Join(sessDir, "history.json"), []byte("not valid json"), 0644)
+
+	_, err := searchHistory("sess-bad", "keyword", "")
+	if err == nil {
+		t.Fatal("expected error for bad JSON history file")
+	}
+}
+
+func TestSearchHistory_WithMatches(t *testing.T) {
+	// searchHistory iterates from len(entries)-5 down to 0
+	// Need ≥6 entries so index 0 and 1 are checked
+	entries := []historyEntry{
+		{Role: "user", Content: "first entry with target keyword"},
+		{Role: "assistant", Content: "second entry also has target"},
+		{Role: "user", Content: "third entry"},
+		{Role: "user", Content: "fourth entry"},
+		{Role: "user", Content: "fifth entry"},
+		{Role: "user", Content: "sixth entry (last 4 skipped)"},
+	}
+	setupHistoryFile(t, "sess-match", entries)
+
+	got, err := searchHistory("sess-match", "target", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "target") {
+		t.Errorf("expected 'target' in matches, got: %s", got)
+	}
+}
+
+func TestSearchHistory_NoMatches(t *testing.T) {
+	entries := []historyEntry{
+		{Role: "user", Content: "apple"},
+		{Role: "assistant", Content: "banana"},
+		{Role: "user", Content: "cherry"},
+		{Role: "user", Content: "date"},
+		{Role: "user", Content: "elderberry"},
+		{Role: "user", Content: "fig (last 4 boundary)"},
+	}
+	setupHistoryFile(t, "sess-nomatch", entries)
+
+	got, err := searchHistory("sess-nomatch", "xyzzy_not_here", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "No matches found") {
+		t.Errorf("expected 'No matches found', got: %s", got)
+	}
+}
+
+func TestSearchHistory_TimeRange(t *testing.T) {
+	// ts:1000 is year 1970, well outside any "1d" window
+	// Entry at index 0 and 1 contain keyword but are too old → filtered
+	entries := []historyEntry{
+		{Role: "user", Content: "ts:1000\ntarget keyword here"},
+		{Role: "assistant", Content: "ts:1000\nalso target but old"},
+		{Role: "user", Content: "third"},
+		{Role: "user", Content: "fourth"},
+		{Role: "user", Content: "fifth"},
+		{Role: "user", Content: "sixth"},
+	}
+	setupHistoryFile(t, "sess-timerange", entries)
+
+	// With "1d" range, entries with ts=1000 (year 1970) are filtered out
+	got, err := searchHistory("sess-timerange", "target", "1d")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "No matches found") {
+		t.Errorf("expected no matches after time filtering old entries, got: %s", got)
+	}
+}
+
+// ---------- Routes: list_files recursive + search_history with session ----------
+
+func TestRoutes_ListFiles_Recursive(t *testing.T) {
+	e := newExec(t)
+	writeTemp(t, e, "sub/deep.txt", "deep content")
+
+	got, err := Routes(e, "list_files", []byte(`{"path":"","recursive":true}`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "sub/deep.txt") {
+		t.Errorf("expected sub/deep.txt in recursive listing, got: %s", got)
+	}
+}
+
+// ---------- Routes: invalid JSON for each remaining case ----------
+
+func TestRoutes_InvalidJSON_AllCases(t *testing.T) {
+	e := newExec(t)
+	cases := []string{
+		"write_file",
+		"list_files",
+		"glob_files",
+		"search_content",
+		"patch_edit",
+		"search_history",
+	}
+	for _, name := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := Routes(e, name, []byte(`{bad json`))
+			if err == nil {
+				t.Fatalf("expected json.Unmarshal error for %s with invalid JSON", name)
+			}
+		})
+	}
+}
+
+// ---------- write: WriteFile fails (read-only parent dir) ----------
+
+func TestWrite_WriteFileFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("running as root; permission restrictions do not apply")
+	}
+	e := newExec(t)
+	subdir := filepath.Join(e.WorkPath, "ro")
+	os.MkdirAll(subdir, 0755)
+	os.Chmod(subdir, 0555)
+	t.Cleanup(func() { os.Chmod(subdir, 0755) })
+
+	_, err := write(e, "ro/out.txt", "content")
+	if err == nil {
+		t.Fatal("expected error writing to read-only directory")
+	}
+}
+
+// ---------- ListExcludes: unreadable ignore file (parseIgnore error) ----------
+
+func TestListExcludes_UnreadableIgnoreFile(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("running as root; chmod 000 does not restrict reads")
+	}
+	dir := t.TempDir()
+	ignorePath := filepath.Join(dir, ".gitignore")
+	os.WriteFile(ignorePath, []byte("node_modules\n"), 0644)
+	os.Chmod(ignorePath, 0000)
+	t.Cleanup(func() { os.Chmod(ignorePath, 0644) })
+
+	// parseIgnore fails to open → silently returns nil; ListExcludes should not panic
+	result := ListExcludes(dir)
+	_ = result
+}
+
+func TestRoutes_SearchHistory_WithSession(t *testing.T) {
+	entries := []historyEntry{
+		{Role: "user", Content: "route target entry"},
+		{Role: "assistant", Content: "route response"},
+		{Role: "user", Content: "third"},
+		{Role: "user", Content: "fourth"},
+		{Role: "user", Content: "fifth"},
+		{Role: "user", Content: "sixth"},
+	}
+	setupHistoryFile(t, "route-sess", entries)
+
+	e := &toolTypes.Executor{
+		WorkPath:  t.TempDir(),
+		SessionID: "route-sess",
+	}
+
+	got, err := Routes(e, "search_history", []byte(`{"keyword":"route target","time_range":""}`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "route target") {
+		t.Errorf("expected 'route target' in results, got: %s", got)
+	}
 }

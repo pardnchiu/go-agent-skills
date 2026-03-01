@@ -161,6 +161,49 @@ name: empty-body
 	}
 }
 
+// ---------- scan: ReadDir error + parser error ----------
+
+func TestScanner_ReadDirError(t *testing.T) {
+	// Passing a regular file as scan root causes os.ReadDir to fail.
+	// The error is sent to errChan; Scan should not panic.
+	tmpFile, err := os.CreateTemp("", "not-a-dir-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpFile.Close()
+	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
+
+	s := &Scanner{paths: []string{tmpFile.Name()}}
+	s.Scan() // must not panic
+
+	if s.Skills == nil {
+		t.Fatal("Skills must not be nil even when ReadDir fails")
+	}
+}
+
+func TestScanner_ParseError_UnreadableFile(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("running as root; chmod 000 does not restrict reads")
+	}
+
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "broken-skill")
+	os.MkdirAll(skillDir, 0755)
+	path := filepath.Join(skillDir, "SKILL.md")
+	os.WriteFile(path, []byte("content"), 0600)
+	os.Chmod(path, 0000) // make unreadable → parser returns error
+	t.Cleanup(func() { os.Chmod(path, 0600) })
+
+	s := &Scanner{paths: []string{dir}}
+	s.Scan() // should warn and skip, not panic
+
+	for _, n := range s.List() {
+		if n == "broken-skill" {
+			t.Error("unreadable skill should be skipped, not registered")
+		}
+	}
+}
+
 func containsStr(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
 		func() bool {

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/pardnchiu/agenvoy/internal/keychain"
 )
 
 type Agent struct {
@@ -43,13 +45,13 @@ func New(model ...string) (*Agent, error) {
 		apiKeyEnvKey = "COMPAT_" + instanceName + "_API_KEY"
 	}
 
-	baseURL := os.Getenv(urlEnvKey)
+	baseURL := keychain.Get(urlEnvKey)
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	apiKey := os.Getenv(apiKeyEnvKey)
+	apiKey := keychain.Get(apiKeyEnvKey)
 
 	workDir, err := os.Getwd()
 	if err != nil {

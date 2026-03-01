@@ -1,0 +1,253 @@
+package main
+
+import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+
+	"github.com/manifoldco/promptui"
+	"github.com/pardnchiu/agenvoy/internal/agents/provider/copilot"
+	"github.com/pardnchiu/agenvoy/internal/keychain"
+)
+
+type Provider struct {
+	Label       string `json:"label"`
+	EnvKey      string `json:"envKey"`
+	Prefix      string `json:"prefix"`
+	Model       string `json:"model"`
+	Description string `json:"description"`
+	IsCopilot   bool   `json:"is_copilot"`
+	IsCompat    bool   `json:"is_compat"`
+}
+
+//go:embed embed/providers.json
+var providersJSON []byte
+
+var providers []Provider
+
+func init() {
+	if err := json.Unmarshal(providersJSON, &providers); err != nil {
+		slog.Error("json.Unmarshal",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+}
+
+func runAdd() {
+	items := make([]string, len(providers))
+	for i, provider := range providers {
+		items[i] = provider.Label
+	}
+
+	selector := promptui.Select{
+		Label:        "Select provider to add",
+		Items:        items,
+		HideSelected: true,
+	}
+	index, _, err := selector.Run()
+	if err != nil {
+		slog.Error("selector.Run",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	provider := providers[index]
+
+	var model string
+	switch {
+	case provider.IsCopilot:
+		model = addCopilot(provider.Prefix, provider.Model)
+
+	case provider.IsCompat:
+		model = addCompat()
+
+	default:
+		addAPIKey(provider.Label, provider.EnvKey)
+		model = getModelName(provider.Prefix, provider.Model)
+	}
+
+	if model != "" {
+		upsertModel(model, provider.Description)
+	}
+}
+
+func addCopilot(prefix, defaultModel string) string {
+	_, err := copilot.New()
+	if err != nil {
+		slog.Error("failed to initialize Copilot",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	return getModelName(prefix, defaultModel)
+}
+
+func addCompat() string {
+	nameInput := promptui.Prompt{
+		Label: "Provider name (ex. ollama)",
+		Validate: func(s string) error {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return fmt.Errorf("provider name cannot be empty")
+			}
+			if strings.ContainsAny(s, " \t[]@") {
+				return fmt.Errorf("name must not contain spaces, brackets or @")
+			}
+			return nil
+		},
+	}
+
+	providor, err := nameInput.Run()
+	if err != nil {
+		slog.Error("nameInput.Run",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	providor = strings.ToUpper(strings.TrimSpace(providor))
+
+	urlInput := promptui.Prompt{
+		Label:   "URL (leave empty for http://localhost:11434)",
+		Default: "",
+	}
+	url, err := urlInput.Run()
+	if err != nil {
+		slog.Error("urlInput.Run",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	url = strings.TrimRight(strings.TrimSpace(url), "/")
+	if url == "" {
+		url = "http://localhost:11434"
+	}
+
+	if err := keychain.UpsertCompat(providor, url); err != nil {
+		slog.Error(" keychain.UpsertCompat",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	fmt.Printf("[*] Compat provider %q saved: %s\n", providor, url)
+
+	// * compat is optional, so if empty, skip
+	apiKeyInput := promptui.Prompt{
+		Label: "API Key (leave empty to skip)",
+		Mask:  '*',
+	}
+	apiKey, err := apiKeyInput.Run()
+	if err != nil {
+		os.Exit(1)
+	}
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey != "" {
+		keychainKey := "COMPAT_" + providor + "_API_KEY"
+		if err := keychain.Set(keychainKey, apiKey); err != nil {
+			slog.Error("keychain.Set",
+				slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		fmt.Printf("[*] %s saved\n", keychainKey)
+	} else {
+		fmt.Printf("[*] No API key: %q\n", providor)
+	}
+
+	// * if no model specified, skip
+	prefix := fmt.Sprintf("compat[%s]@", providor)
+	return getModelName(prefix, "")
+}
+
+func addAPIKey(label, envKey string) {
+	apiKeyInput := promptui.Prompt{
+		Label: fmt.Sprintf("%s API Key", label),
+		Mask:  '*',
+		Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("API key cannot be empty")
+			}
+			return nil
+		},
+	}
+	apiKey, err := apiKeyInput.Run()
+	if err != nil {
+		os.Exit(1)
+	}
+	if err := keychain.Set(envKey, strings.TrimSpace(apiKey)); err != nil {
+		slog.Error("keychain.Set",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	fmt.Printf("[*] %s saved\n", envKey)
+}
+
+func getModelName(prefix, defaultModel string) string {
+	modelInput := promptui.Prompt{
+		Label:   fmt.Sprintf("Model name (prefix: %q)", prefix),
+		Default: defaultModel,
+	}
+	model, err := modelInput.Run()
+	if err != nil {
+		os.Exit(1)
+	}
+	model = strings.TrimSpace(model)
+	if model == "" {
+		model = defaultModel
+	}
+
+	// * is compat and no model specified, skip
+	if model == "" {
+		return ""
+	}
+	return prefix + model
+}
+
+func upsertModel(name, defaultDesc string) {
+	descriptionInput := promptui.Prompt{
+		Label:   "Model description",
+		Default: defaultDesc,
+	}
+
+	description, err := descriptionInput.Run()
+	if err != nil {
+		os.Exit(1)
+	}
+	description = strings.TrimSpace(description)
+	if description == "" {
+		description = defaultDesc
+	}
+
+	cfg, err := keychain.Load()
+	if err != nil {
+		slog.Error("keychain.Load",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	seen := make(map[string]struct{})
+	deduped := make([]keychain.ModelEntry, 0, len(cfg.Models))
+	found := false
+	for _, m := range cfg.Models {
+		if _, ok := seen[m.Name]; ok {
+			continue
+		}
+		seen[m.Name] = struct{}{}
+		if m.Name == name {
+			m.Description = description
+			found = true
+		}
+		deduped = append(deduped, m)
+	}
+	cfg.Models = deduped
+	if !found {
+		cfg.Models = append(cfg.Models, keychain.ModelEntry{
+			Name:        name,
+			Description: description,
+		})
+	}
+
+	if err := keychain.Save(cfg); err != nil {
+		slog.Error("keychain.Save",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	fmt.Printf("[*] %q added\n", name)
+}

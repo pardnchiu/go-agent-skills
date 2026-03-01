@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/pardnchiu/agenvoy/internal/keychain"
 )
 
 type Agent struct {
@@ -24,9 +26,9 @@ func New(model ...string) (*Agent, error) {
 	if len(model) > 0 && strings.HasPrefix(model[0], prefix) {
 		usedModel = strings.TrimPrefix(model[0], prefix)
 	}
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	apiKey := keychain.Get("OPENAI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("os.Getenv: OPENAI_API_KEY is required")
+		return nil, fmt.Errorf("keychain.Get: OPENAI_API_KEY is required")
 	}
 
 	workDir, _ := os.Getwd()

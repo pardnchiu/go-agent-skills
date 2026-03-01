@@ -97,7 +97,7 @@ func (t *Translator) send(doc *APIDocumentData, params map[string]any) (string, 
 		if err := json.Unmarshal(body, &data); err == nil {
 			output, err := json.Marshal(data)
 			if err != nil {
-				return "", fmt.Errorf("json.MarshalIndent: %w", err)
+				return "", fmt.Errorf("json.Marshal: %w", err)
 			}
 			return string(output), nil
 		}
